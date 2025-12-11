@@ -16,7 +16,7 @@ import SettingsScreen from "@screens/settings/SettingsScreen";
 
 // Services
 import sqliteService from "@services/storage/sqliteService";
-import mmkvService from "@services/storage/mmkvService";
+import {mmkvService} from "@services/storage/mmkvService";
 import llmClient from "@services/llm/llmClient";
 import tagEngine from "@services/tag-engine/tagEngine";
 import { getDefaultTagsWithIds } from "@constants/defaultTags";
@@ -57,7 +57,7 @@ export const AppNavigator: React.FC = () => {
       }
 
       // 4. Check if onboarding is complete
-      const onboardingComplete = mmkvService.getOnboardingComplete();
+      const onboardingComplete = await mmkvService.getOnboardingComplete();
       setInitialRoute(onboardingComplete ? "Home" : "Onboarding");
 
       console.log("[App] Initialization complete");

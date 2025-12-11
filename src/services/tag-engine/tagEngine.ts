@@ -4,7 +4,7 @@ import { Tag, DailyTagSelection } from "@type/tag.types";
 import tagRepository from "./tagRepository";
 import adaptiveRandomizer from "./adaptiveRandomizer";
 import sqliteService from "@services/storage/sqliteService";
-import mmkvService from "@services/storage/mmkvService";
+import {mmkvService} from "@services/storage/mmkvService";
 import { v4 as uuidv4 } from "uuid";
 
 class TagEngine {

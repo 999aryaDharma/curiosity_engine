@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { AppSettings } from "@type/common.types";
-import mmkvService from "@services/storage/mmkvService";
+import {mmkvService} from "@services/storage/mmkvService";
 import { DEFAULT_SETTINGS } from "@constants/config";
 
 interface SettingsState {

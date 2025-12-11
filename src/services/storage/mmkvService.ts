@@ -1,227 +1,96 @@
 // src/services/storage/mmkvService.ts
-
-import { MMKV } from "react-native-mmkv";
-
-// Workaround for a persistent module resolution issue.
-// We use `require` to get the actual constructor value, bypassing ES module import problems.
-const MMKVConstructor = require("react-native-mmkv").MMKV;
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppSettings } from "@type/common.types";
 
 class MMKVService {
-  private storage: MMKV;
-
-  constructor() {
-    this.storage = new MMKVConstructor({
-      id: "curiosity-engine-storage",
-      encryptionKey: "curiosity-engine-secure-key-2024",
-    });
-  }
-
-  set(key: string, value: any): void {
+  async set(key: string, value: any): Promise<void> {
     try {
-      if (typeof value === "string") {
-        this.storage.set(key, value);
-      } else if (typeof value === "number") {
-        this.storage.set(key, value);
-      } else if (typeof value === "boolean") {
-        this.storage.set(key, value);
-      } else {
-        this.storage.set(key, JSON.stringify(value));
-      }
+      const jsonValue = JSON.stringify(value);
+      await AsyncStorage.setItem(key, jsonValue);
     } catch (error) {
-      console.error(`[MMKV] Error setting key ${key}:`, error);
+      console.error(`Error setting key ${key}:`, error);
       throw error;
     }
   }
 
-  get(key: string): any {
+  async get<T>(key: string): Promise<T | null> {
     try {
-      const value = this.storage.getString(key);
-
-      if (value === undefined) {
-        return null;
-      }
-
-      try {
-        return JSON.parse(value);
-      } catch {
-        return value;
-      }
+      const value = await AsyncStorage.getItem(key);
+      return value != null ? JSON.parse(value) : null;
     } catch (error) {
-      console.error(`[MMKV] Error getting key ${key}:`, error);
+      console.error(`Error getting key ${key}:`, error);
       return null;
     }
   }
 
-  getString(key: string): string | null {
+  async delete(key: string): Promise<void> {
     try {
-      return this.storage.getString(key) ?? null;
+      await AsyncStorage.removeItem(key);
     } catch (error) {
-      console.error(`[MMKV] Error getting string ${key}:`, error);
-      return null;
-    }
-  }
-
-  getNumber(key: string): number | null {
-    try {
-      return this.storage.getNumber(key) ?? null;
-    } catch (error) {
-      console.error(`[MMKV] Error getting number ${key}:`, error);
-      return null;
-    }
-  }
-
-  getBoolean(key: string): boolean | null {
-    try {
-      return this.storage.getBoolean(key) ?? null;
-    } catch (error) {
-      console.error(`[MMKV] Error getting boolean ${key}:`, error);
-      return null;
-    }
-  }
-
-  delete(key: string): void {
-    try {
-      this.storage.remove(key);
-    } catch (error) {
-      console.error(`[MMKV] Error deleting key ${key}:`, error);
+      console.error(`Error deleting key ${key}:`, error);
       throw error;
     }
   }
 
-  contains(key: string): boolean {
+  async getAllKeys(): Promise<string[]> {
     try {
-      return this.storage.contains(key);
+      const keys = await AsyncStorage.getAllKeys();
+      return [...keys]; // Convert readonly array to mutable array
     } catch (error) {
-      console.error(`[MMKV] Error checking key ${key}:`, error);
-      return false;
-    }
-  }
-
-  getAllKeys(): string[] {
-    try {
-      return this.storage.getAllKeys();
-    } catch (error) {
-      console.error("[MMKV] Error getting all keys:", error);
+      console.error("Error getting all keys:", error);
       return [];
     }
   }
 
-  clearAll(): void {
+  async clear(): Promise<void> {
     try {
-      this.storage.clearAll();
-      console.log("[MMKV] All data cleared");
+      await AsyncStorage.clear();
     } catch (error) {
-      console.error("[MMKV] Error clearing all data:", error);
+      console.error("Error clearing storage:", error);
       throw error;
     }
   }
 
-  getSettings(): any {
-    return this.get("app_settings");
+  // Utility methods
+  async setString(key: string, value: string): Promise<void> {
+    await AsyncStorage.setItem(key, value);
   }
 
-  setSettings(settings: any): void {
-    this.set("app_settings", settings);
+  async getString(key: string): Promise<string | null> {
+    return await AsyncStorage.getItem(key);
   }
 
-  getOnboardingComplete(): boolean {
-    return this.getBoolean("onboarding_complete") ?? false;
+  async setNumber(key: string, value: number): Promise<void> {
+    await AsyncStorage.setItem(key, value.toString());
   }
 
-  setOnboardingComplete(complete: boolean): void {
-    this.set("onboarding_complete", complete);
+  async getNumber(key: string): Promise<number | null> {
+    const value = await AsyncStorage.getItem(key);
+    return value != null ? parseFloat(value) : null;
   }
 
-  getLastDailyTagRefresh(): number | null {
-    return this.getNumber("last_daily_tag_refresh");
+  async setBoolean(key: string, value: boolean): Promise<void> {
+    await AsyncStorage.setItem(key, value.toString());
   }
 
-  setLastDailyTagRefresh(timestamp: number): void {
-    this.set("last_daily_tag_refresh", timestamp);
+  async getBoolean(key: string): Promise<boolean | null> {
+    const value = await AsyncStorage.getItem(key);
+    return value != null ? value === "true" : null;
   }
 
-  getCachedSpark(): any {
-    return this.get("cached_spark");
+  async getOnboardingComplete(): Promise<boolean> {
+    const value = await this.getBoolean("onboarding_complete");
+    return value ?? false;
   }
 
-  setCachedSpark(spark: any): void {
-    this.set("cached_spark", spark);
+  // Settings-specific methods
+  async setSettings(settings: AppSettings): Promise<void> {
+    await this.set("app_settings", settings);
   }
 
-  clearCachedSpark(): void {
-    this.delete("cached_spark");
-  }
-
-  getSelectedTags(): string[] {
-    return this.get("selected_tags") || [];
-  }
-
-  setSelectedTags(tags: string[]): void {
-    this.set("selected_tags", tags);
-  }
-
-  getUserPreferences(): Record<string, any> {
-    return this.get("user_preferences") || {};
-  }
-
-  setUserPreferences(prefs: Record<string, any>): void {
-    this.set("user_preferences", prefs);
-  }
-
-  updateUserPreference(key: string, value: any): void {
-    const prefs = this.getUserPreferences();
-    prefs[key] = value;
-    this.setUserPreferences(prefs);
-  }
-
-  getAppVersion(): string | null {
-    return this.getString("app_version");
-  }
-
-  setAppVersion(version: string): void {
-    this.set("app_version", version);
-  }
-
-  getAnalyticsEnabled(): boolean {
-    return this.getBoolean("analytics_enabled") ?? false;
-  }
-
-  setAnalyticsEnabled(enabled: boolean): void {
-    this.set("analytics_enabled", enabled);
-  }
-
-  getDarkModeEnabled(): boolean {
-    return this.getBoolean("dark_mode_enabled") ?? false;
-  }
-
-  setDarkModeEnabled(enabled: boolean): void {
-    this.set("dark_mode_enabled", enabled);
-  }
-
-  getLanguage(): "en" | "id" {
-    return (this.getString("language") as "en" | "id") || "en";
-  }
-
-  setLanguage(lang: "en" | "id"): void {
-    this.set("language", lang);
-  }
-
-  export(): Record<string, any> {
-    const keys = this.getAllKeys();
-    const data: Record<string, any> = {};
-
-    keys.forEach((key) => {
-      data[key] = this.get(key);
-    });
-
-    return data;
-  }
-
-  import(data: Record<string, any>): void {
-    Object.entries(data).forEach(([key, value]) => {
-      this.set(key, value);
-    });
+  async getSettings(): Promise<AppSettings | null> {
+    return await this.get<AppSettings>("app_settings");
   }
 }
 
-export default new MMKVService();
+export const mmkvService = new MMKVService();
