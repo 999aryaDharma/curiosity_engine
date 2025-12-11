@@ -7,6 +7,9 @@ class SQLiteService {
   private dbName = "curiosity_engine.db";
   private isInitialized = false;
 
+  // Queue for serializing database operations to prevent lock issues
+  private operationQueue: Promise<any> = Promise.resolve();
+
   async initialize(): Promise<void> {
     if (this.isInitialized) {
       console.log("[SQLite] Already initialized");
@@ -210,12 +213,17 @@ class SQLiteService {
       throw new Error("Database not initialized");
     }
 
-    try {
-      return await this.db.runAsync(sql, params);
-    } catch (error) {
-      console.error("[SQLite] Query failed:", error);
-      throw error;
-    }
+    // Chain the operation to the queue to ensure sequential execution
+    this.operationQueue = this.operationQueue.then(async () => {
+      try {
+        return await this.db!.runAsync(sql, params);
+      } catch (error) {
+        console.error("[SQLite] Query failed:", error);
+        throw error;
+      }
+    });
+
+    return this.operationQueue;
   }
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
@@ -223,13 +231,18 @@ class SQLiteService {
       throw new Error("Database not initialized");
     }
 
-    try {
-      const result = await this.db.getAllAsync<T>(sql, params);
-      return result;
-    } catch (error) {
-      console.error("[SQLite] Query failed:", error);
-      throw error;
-    }
+    // Chain the operation to the queue to ensure sequential execution
+    this.operationQueue = this.operationQueue.then(async () => {
+      try {
+        const result = await this.db!.getAllAsync<T>(sql, params);
+        return result;
+      } catch (error) {
+        console.error("[SQLite] Query failed:", error);
+        throw error;
+      }
+    });
+
+    return this.operationQueue;
   }
 
   async insert(table: string, data: Record<string, any>): Promise<number> {

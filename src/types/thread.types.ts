@@ -1,4 +1,5 @@
 // src/types/thread.types.ts
+import { Spark } from "./spark.types";
 
 export interface ConceptNode {
   id: string;
@@ -77,4 +78,44 @@ export interface ThreadStatistics {
     connectionCount: number;
   }[];
   isolatedConcepts: string[];
+}
+
+export interface ThreadSpark {
+  id: string;
+  text: string;
+  type: "continuation" | "derived" | "wildcard";
+  conceptLinks: string[];
+  parentSparkId?: string;
+}
+
+export interface ThreadPack {
+  id: string;
+  clusterId: string;
+  clusterName: string;
+  continuationSpark: ThreadSpark;
+  derivedSparks: ThreadSpark[];
+  wildcardSpark: ThreadSpark;
+  relations: ThreadSparkRelation[];
+  generatedAt: number;
+}
+
+export interface ThreadSparkRelation {
+  fromSparkId: string;
+  toSparkId: string;
+  relationType: "continuation" | "derivation" | "wildcard";
+}
+
+export interface ThreadPackResponse {
+  clusterSummary: string;
+  continuationSpark: string;
+  derivedSparks: string[];
+  wildcardSpark: string;
+  conceptReinforcement: string[];
+}
+
+export interface ClusterJourney {
+  cluster: ConceptCluster;
+  sparkHistory: Spark[];
+  dominantConcepts: ConceptNode[];
+  lastUpdated: number;
 }

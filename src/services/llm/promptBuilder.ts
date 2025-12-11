@@ -295,6 +295,96 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
         return "You generate curiosity sparks.";
     }
   }
+
+  buildThreadPackPrompt(
+    cluster: ConceptCluster,
+    conceptNodes: ConceptNode[],
+    historySparks: Spark[],
+    chaos: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine's Thread mode, generating a THREAD PACK - a connected set of sparks that continue an intellectual journey.
+  
+  IMPORTANT: You are generating 4 connected sparks as one cohesive exploration package:
+  
+  1. CONTINUATION SPARK - Direct logical next step
+  2. DERIVED SPARK 1 - Alternative angle from same base
+  3. DERIVED SPARK 2 - Another alternative perspective
+  4. WILDCARD SPARK - Serendipitous connection (${Math.round(
+    chaos * 100
+  )}% chaos)
+  
+  ALL sparks must:
+  - Build on cluster "${cluster.name}" theme
+  - Reference existing concepts
+  - Connect to each other logically
+  - MUST BE IN INDONESIAN LANGUAGE
+  - Each under 280 characters
+  
+  Output ONLY valid JSON:
+  {
+    "clusterSummary": "Brief analysis of cluster theme in Indonesian",
+    "continuationSpark": "Main next step question in Indonesian",
+    "derivedSparks": [
+      "Alternative angle 1 in Indonesian",
+      "Alternative angle 2 in Indonesian"
+    ],
+    "wildcardSpark": "Unexpected connection in Indonesian",
+    "conceptReinforcement": ["concept1", "concept2", "new_concept"]
+  }
+  
+  Rules:
+  - Continuation builds directly on most recent spark
+  - Derived sparks offer parallel explorations
+  - Wildcard introduces controlled novelty
+  - All 4 sparks should feel like chapters of one exploration
+  - ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+
+    const conceptNames = conceptNodes.map((n) => n.name).join(", ");
+
+    const dominantConcepts = conceptNodes
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 3)
+      .map((n) => `${n.name} (weight: ${n.weight.toFixed(2)})`)
+      .join(", ");
+
+    const recentSparksSummary =
+      historySparks.length > 0
+        ? historySparks
+            .slice(0, 3)
+            .map((s, i) => `${i + 1}. "${s.text.substring(0, 80)}..."`)
+            .join("\n")
+        : "No previous sparks in this cluster yet.";
+
+    const mostRecentSpark = historySparks[0]?.text || "No previous spark";
+
+    const user = `CLUSTER: "${cluster.name}"
+  Coherence: ${Math.round(cluster.coherence * 100)}%
+  Journey progress: ${cluster.sparkCount} sparks explored
+  Concepts: ${conceptNames}
+  
+  DOMINANT THEMES:
+  ${dominantConcepts}
+  
+  MOST RECENT SPARK:
+  "${mostRecentSpark}"
+  
+  PREVIOUS SPARKS:
+  ${recentSparksSummary}
+  
+  CHAOS LEVEL: ${this.describeChaosLevel(chaos)}
+  
+  Generate a Thread Pack of 4 connected sparks:
+  1. CONTINUATION: Natural next question after most recent spark
+  2. DERIVED 1: Alternative angle on same theme
+  3. DERIVED 2: Another perspective on theme
+  4. WILDCARD: Unexpected but related connection
+  
+  Make them feel like one cohesive exploration with 4 chapters.
+  
+  Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
 }
 
 export default new PromptBuilder();

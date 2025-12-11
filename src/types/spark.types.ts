@@ -1,5 +1,7 @@
 // src/types/spark.types.ts
 
+import { ThreadPackResponse } from "./thread.types";
+
 export type SparkMode = 1 | 2 | 3; // 1: Quick, 2: Deep Dive, 3: Thread
 
 export interface Spark {
@@ -59,7 +61,7 @@ export interface SparkGenerationInput {
 export interface SparkValidationResult {
   isValid: boolean;
   errors: string[];
-  data?: QuickSparkResponse | DeepDiveResponse | ThreadSparkResponse;
+  data?: QuickSparkResponse | DeepDiveResponse | ThreadSparkResponse | ThreadPackResponse;
 }
 
 export interface SparkFilter {

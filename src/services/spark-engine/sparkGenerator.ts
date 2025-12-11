@@ -16,6 +16,11 @@ import {
 import { Tag } from "@type/tag.types";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
 import sqliteService from "@services/storage/sqliteService";
+import {
+  ThreadPack,
+  ThreadSpark,
+  ThreadPackResponse,
+} from "@type/thread.types";
 import { v4 as uuidv4 } from "uuid";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 
@@ -379,6 +384,150 @@ class SparkGenerator {
       viewed: Boolean(row.viewed),
       saved: Boolean(row.saved),
     };
+  }
+
+  async generateThreadPack(
+    clusterId: string,
+    chaos: number = 0.5
+  ): Promise<ThreadPack> {
+    console.log(
+      `[SparkGenerator] Generating thread pack for cluster: ${clusterId}`
+    );
+
+    const cluster = await clusterEngine.getClusterById(clusterId);
+    if (!cluster) {
+      throw new Error(`Cluster not found: ${clusterId}`);
+    }
+
+    const conceptNodes = await Promise.all(
+      cluster.concepts.map((id) => conceptGraphEngine.getConceptById(id))
+    );
+    const validNodes = conceptNodes.filter((n): n is ConceptNode => n !== null);
+
+    if (validNodes.length === 0) {
+      throw new Error(`No concepts found in cluster: ${clusterId}`);
+    }
+
+    const allSparkIds = new Set<string>();
+    validNodes.forEach((node) => {
+      node.sparkIds.forEach((id) => allSparkIds.add(id));
+    });
+
+    const historySparks = await Promise.all(
+      Array.from(allSparkIds)
+        .slice(0, 5)
+        .map((id) => this.getSparkById(id))
+    );
+    const validHistorySparks = historySparks.filter(
+      (s): s is Spark => s !== null
+    );
+
+    const { system, user } = promptBuilder.buildThreadPackPrompt(
+      cluster,
+      validNodes,
+      validHistorySparks,
+      chaos
+    );
+
+    const startTime = Date.now();
+    const llmResponse = await llmClient.generateWithRetry({
+      prompt: user,
+      systemPrompt: system,
+      temperature: 0.7 + chaos * 0.2,
+      maxTokens: 800,
+    });
+    const duration = Date.now() - startTime;
+
+    console.log(`[SparkGenerator] Thread pack generated in ${duration}ms`);
+
+    const sanitized = responseValidator.sanitizeResponse(llmResponse.content);
+    const validation = responseValidator.validateThreadPack(sanitized);
+
+    if (!validation.isValid) {
+      console.error("[SparkGenerator] Validation failed:", validation.errors);
+      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+    }
+
+    const data = validation.data as ThreadPackResponse;
+
+    const packId = uuidv4();
+    const now = Date.now();
+
+    const continuationSpark: ThreadSpark = {
+      id: `${packId}_continuation`,
+      text: data.continuationSpark,
+      type: "continuation",
+      conceptLinks: data.conceptReinforcement,
+    };
+
+    const derivedSparks: ThreadSpark[] = data.derivedSparks.map((text, i) => ({
+      id: `${packId}_derived_${i}`,
+      text,
+      type: "derived" as const,
+      conceptLinks: data.conceptReinforcement,
+      parentSparkId: continuationSpark.id,
+    }));
+
+    const wildcardSpark: ThreadSpark = {
+      id: `${packId}_wildcard`,
+      text: data.wildcardSpark,
+      type: "wildcard",
+      conceptLinks: data.conceptReinforcement,
+    };
+
+    const threadPack: ThreadPack = {
+      id: packId,
+      clusterId: cluster.id,
+      clusterName: cluster.name,
+      continuationSpark,
+      derivedSparks,
+      wildcardSpark,
+      relations: [
+        {
+          fromSparkId: continuationSpark.id,
+          toSparkId: derivedSparks[0].id,
+          relationType: "derivation",
+        },
+        {
+          fromSparkId: continuationSpark.id,
+          toSparkId: derivedSparks[1].id,
+          relationType: "derivation",
+        },
+        {
+          fromSparkId: continuationSpark.id,
+          toSparkId: wildcardSpark.id,
+          relationType: "wildcard",
+        },
+      ],
+      generatedAt: now,
+    };
+
+    console.log(`[SparkGenerator] Thread pack created with 4 sparks`);
+
+    return threadPack;
+  }
+
+  async saveThreadSparkFromPack(
+    threadSpark: ThreadSpark,
+    packId: string,
+    clusterId: string
+  ): Promise<Spark> {
+    const spark: Spark = {
+      id: threadSpark.id,
+      text: threadSpark.text,
+      tags: [],
+      mode: 3,
+      conceptLinks: threadSpark.conceptLinks,
+      createdAt: Date.now(),
+      viewed: false,
+      saved: false,
+    };
+
+    await this.saveSpark(spark);
+
+    await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
+
+    return spark;
   }
 }
 

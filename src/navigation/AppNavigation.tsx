@@ -1,21 +1,19 @@
-// src/navigation/AppNavigator.tsx
-
 import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { View, ActivityIndicator } from "react-native";
 import Constants from "expo-constants";
 
-// Screens
 import OnboardingScreen from "@screens/onboarding/OnboardingScreen";
 import HomeScreen from "@screens/main/HomeScreen";
 import QuickSparkScreen from "@screens/main/QuickSparkScreen";
 import DeepDiveScreen from "@screens/main/DeepDiveScreen";
 import ThreadScreen from "@screens/main/ThreadScreen";
+import ClusterJourneyScreen from "@screens/main/ClusterJourneyScreen";
+import ThreadPackViewScreen from "@screens/main/ThreadPackViewScreen";
 import HistoryScreen from "@screens/main/HistoryScreen";
 import SettingsScreen from "@screens/settings/SettingsScreen";
 
-// Services
 import sqliteService from "@services/storage/sqliteService";
 import { mmkvService } from "@services/storage/mmkvService";
 import llmClient from "@services/llm/llmClient";
@@ -23,7 +21,19 @@ import tagEngine from "@services/tag-engine/tagEngine";
 import { getDefaultTagsWithIds } from "@constants/defaultTags";
 import { COLORS } from "@constants/colors";
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Home: undefined;
+  QuickSpark: undefined;
+  DeepDive: { sparkText?: string };
+  Thread: undefined;
+  ClusterJourney: { clusterId: string };
+  ThreadPackView: { clusterId: string };
+  History: undefined;
+  Settings: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
@@ -39,7 +49,6 @@ export const AppNavigator: React.FC = () => {
     try {
       console.log("[App] Initializing...");
 
-      // 1. Load API Key from expo-constants
       const apiKey = Constants.expoConfig?.extra?.geminiApiKey;
 
       if (apiKey) {
@@ -49,16 +58,13 @@ export const AppNavigator: React.FC = () => {
         console.warn("[App] No Gemini API key found in configuration");
       }
 
-      // 1. Initialize Database
       await sqliteService.initialize();
       console.log("[App] Database initialized");
 
-      // 2. Initialize default tags
       const defaultTags = getDefaultTagsWithIds();
       await tagEngine.initializeDefaultTags(defaultTags);
       console.log("[App] Tags initialized");
 
-      // 4. Check if onboarding is complete
       const onboardingComplete = await mmkvService.getOnboardingComplete();
       setInitialRoute(onboardingComplete ? "Home" : "Onboarding");
 
@@ -66,7 +72,6 @@ export const AppNavigator: React.FC = () => {
       setIsReady(true);
     } catch (error) {
       console.error("[App] Initialization failed:", error);
-      // Still allow app to run, but show error
       setIsReady(true);
     }
   };
@@ -129,6 +134,20 @@ export const AppNavigator: React.FC = () => {
         <Stack.Screen
           name="Thread"
           component={ThreadScreen}
+          options={{
+            animation: "slide_from_bottom",
+          }}
+        />
+        <Stack.Screen
+          name="ClusterJourney"
+          component={ClusterJourneyScreen}
+          options={{
+            animation: "slide_from_right",
+          }}
+        />
+        <Stack.Screen
+          name="ThreadPackView"
+          component={ThreadPackViewScreen}
           options={{
             animation: "slide_from_bottom",
           }}

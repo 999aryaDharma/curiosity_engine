@@ -7,7 +7,9 @@ import {
   SparkValidationResult,
   SparkMode,
 } from "@type/spark.types";
+import { ThreadPackResponse } from "@type/thread.types";
 import { APP_CONFIG } from "@constants/config";
+import { safeJSONParse } from "@/utils/jsonUtils";
 
 class ResponseValidator {
   validateQuickSpark(response: string): SparkValidationResult {
@@ -215,6 +217,76 @@ class ResponseValidator {
     cleaned = this.extractJSON(cleaned);
 
     return cleaned;
+  }
+
+  validateThreadPack(response: string): SparkValidationResult {
+    const errors: string[] = [];
+
+    let parsed: any;
+    try {
+      parsed = safeJSONParse(response, { throwOnError: true });
+    } catch (e) {
+      return {
+        isValid: false,
+        errors: ["Invalid JSON format"],
+      };
+    }
+
+    if (!parsed.clusterSummary || typeof parsed.clusterSummary !== "string") {
+      errors.push('Missing or invalid "clusterSummary" field');
+    }
+
+    if (
+      !parsed.continuationSpark ||
+      typeof parsed.continuationSpark !== "string"
+    ) {
+      errors.push('Missing or invalid "continuationSpark" field');
+    } else if (parsed.continuationSpark.length > APP_CONFIG.MAX_SPARK_LENGTH) {
+      errors.push(`Continuation spark too long`);
+    }
+
+    if (!Array.isArray(parsed.derivedSparks)) {
+      errors.push('Missing or invalid "derivedSparks" field');
+    } else if (parsed.derivedSparks.length !== 2) {
+      errors.push("Must have exactly 2 derived sparks");
+    } else {
+      parsed.derivedSparks.forEach((spark: string, i: number) => {
+        if (typeof spark !== "string") {
+          errors.push(`Derived spark ${i + 1} must be string`);
+        } else if (spark.length > APP_CONFIG.MAX_SPARK_LENGTH) {
+          errors.push(`Derived spark ${i + 1} too long`);
+        }
+      });
+    }
+
+    if (!parsed.wildcardSpark || typeof parsed.wildcardSpark !== "string") {
+      errors.push('Missing or invalid "wildcardSpark" field');
+    } else if (parsed.wildcardSpark.length > APP_CONFIG.MAX_SPARK_LENGTH) {
+      errors.push(`Wildcard spark too long`);
+    }
+
+    if (!Array.isArray(parsed.conceptReinforcement)) {
+      errors.push('Missing or invalid "conceptReinforcement" field');
+    } else if (
+      parsed.conceptReinforcement.length < 2 ||
+      parsed.conceptReinforcement.length > 5
+    ) {
+      errors.push("conceptReinforcement must have 2-5 items");
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    const data: ThreadPackResponse = {
+      clusterSummary: parsed.clusterSummary,
+      continuationSpark: parsed.continuationSpark,
+      derivedSparks: parsed.derivedSparks,
+      wildcardSpark: parsed.wildcardSpark,
+      conceptReinforcement: parsed.conceptReinforcement,
+    };
+
+    return { isValid: true, errors: [], data };
   }
 }
 

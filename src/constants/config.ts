@@ -35,7 +35,7 @@ export const APP_CONFIG = {
 
 export const LLM_CONFIG = {
   GEMINI: {
-    MODEL: "gemini-2.5-flash",
+    MODEL: "gemini-2.5-flash-lite",
     TEMPERATURE: 0.7,
     BASE_URL: "https://generativelanguage.googleapis.com/v1",
   },

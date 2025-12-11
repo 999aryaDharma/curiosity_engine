@@ -1,4 +1,4 @@
-// src/screens/main/ThreadScreen.tsx
+// src/screens/main/ThreadScreen.tsx - UPDATED VERSION
 
 import React, { useEffect, useState } from "react";
 import {
@@ -13,7 +13,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
-import { useSparkStore } from "@stores/sparkStore";
 import Card from "@components/common/Card";
 import Button from "@components/common/Button";
 import LoadingSpinner from "@components/common/LoadingSpinner";
@@ -26,13 +25,8 @@ interface ThreadScreenProps {
 export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
   const { clusters, stats, isLoading, loadGraph, detectClusters } =
     useThreadStore();
-  const { currentSpark, generateThreadSparkFromCluster, isGenerating } =
-    useSparkStore();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(
-    null
-  );
 
   useEffect(() => {
     loadData();
@@ -44,7 +38,6 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
       await detectClusters();
     }
 
-    // Animate entrance
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -52,33 +45,8 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
     }).start();
   };
 
-  // FIXED: Memanggil generateThreadSparkFromCluster dengan clusterId
-  const handleGenerateFromCluster = async (clusterId: string) => {
-    setSelectedClusterId(clusterId);
-
-    try {
-      console.log(`[ThreadScreen] Generating spark from cluster: ${clusterId}`);
-
-      // Ini yang benar: memanggil fungsi yang menerima clusterId
-      await generateThreadSparkFromCluster(clusterId);
-
-      // Show success message
-      Alert.alert(
-        "Spark Generated! ✨",
-        "A new thread spark has been created from this cluster.",
-        [
-          {
-            text: "View Spark",
-            onPress: () => navigation.navigate("QuickSpark"),
-          },
-          { text: "Stay Here", style: "cancel" },
-        ]
-      );
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
-    } finally {
-      setSelectedClusterId(null);
-    }
+  const handleClusterPress = (clusterId: string) => {
+    navigation.navigate("ClusterJourney", { clusterId });
   };
 
   if (isLoading) {
@@ -88,7 +56,7 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
           <LoadingSpinner
             variant="pulse"
             size="large"
-            message="Loading your concept map... 🧵"
+            message="Loading your concept map..."
           />
         </View>
       </SafeAreaView>
@@ -100,7 +68,6 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={["#FFFFFF", "#FEF3F7"]} style={styles.gradient}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -108,7 +75,7 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
           >
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>🧵 Thread</Text>
+          <Text style={styles.headerTitle}>Thread</Text>
           <View style={styles.backButton} />
         </View>
 
@@ -117,9 +84,8 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
         >
           {isEmpty ? (
-            // Empty State
             <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🧵🔗✨</Text>
+              <Text style={styles.emptyEmoji}>✨</Text>
               <Text style={styles.emptyTitle}>Build Your Thread</Text>
               <Text style={styles.emptyDescription}>
                 Generate sparks to build a concept map that connects your
@@ -127,23 +93,19 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
               </Text>
 
               <Card variant="elevated" style={styles.infoCard}>
-                <Text style={styles.infoTitle}>🎯 How it works:</Text>
+                <Text style={styles.infoTitle}>How it works:</Text>
+                <Text style={styles.infoItem}>Generate sparks in any mode</Text>
                 <Text style={styles.infoItem}>
-                  • Generate sparks in any mode
+                  Concepts are automatically extracted
                 </Text>
+                <Text style={styles.infoItem}>Related ideas form clusters</Text>
                 <Text style={styles.infoItem}>
-                  • Concepts are automatically extracted
-                </Text>
-                <Text style={styles.infoItem}>
-                  • Related ideas form clusters
-                </Text>
-                <Text style={styles.infoItem}>
-                  • Get recommendations based on your graph
+                  Continue exploring with Thread Packs
                 </Text>
               </Card>
 
               <Button
-                title="Generate First Spark 🚀"
+                title="Generate First Spark"
                 onPress={() => navigation.navigate("QuickSpark")}
                 variant="gradient"
                 size="large"
@@ -152,13 +114,12 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
             </View>
           ) : (
             <Animated.View style={{ opacity: fadeAnim }}>
-              {/* Stats Overview */}
               <Card
                 variant="gradient"
                 gradientColors={COLORS.gradients.candy}
                 style={styles.statsCard}
               >
-                <Text style={styles.statsTitle}>Your Concept Map 🗺️</Text>
+                <Text style={styles.statsTitle}>Your Concept Map</Text>
                 <View style={styles.statsGrid}>
                   <View style={styles.statItem}>
                     <Text style={styles.statNumber}>{stats.totalConcepts}</Text>
@@ -175,42 +136,15 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
                 </View>
               </Card>
 
-              {/* Explanation Banner */}
               <Card variant="outlined" style={styles.explainCard}>
                 <Text style={styles.explainText}>
-                  💡 <Text style={styles.explainBold}>Tap a cluster</Text> to
-                  generate a new spark that continues exploring that theme.
+                  <Text style={styles.explainBold}>Tap a cluster</Text> to view
+                  its journey and generate a Thread Pack of 4 connected sparks.
                 </Text>
               </Card>
 
-              {/* Current Spark Display - if exists and mode 3 */}
-              {currentSpark && currentSpark.mode === 3 && (
-                <Card variant="elevated" style={styles.currentSparkCard}>
-                  <View style={styles.sparkHeader}>
-                    <Text style={styles.currentSparkTitle}>
-                      Latest Thread Spark
-                    </Text>
-                    <View style={styles.sparkBadge}>
-                      <Text style={styles.sparkBadgeText}>NEW</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.currentSparkText}>
-                    {currentSpark.text}
-                  </Text>
-                  <View style={styles.currentSparkActions}>
-                    <Button
-                      title="View Details"
-                      onPress={() => navigation.navigate("QuickSpark")}
-                      variant="outline"
-                      size="small"
-                    />
-                  </View>
-                </Card>
-              )}
-
-              {/* Clusters */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Concept Clusters 🌟</Text>
+                <Text style={styles.sectionTitle}>Concept Clusters</Text>
                 <Text style={styles.sectionSubtitle}>
                   Tap to continue exploring
                 </Text>
@@ -222,15 +156,11 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
                       cluster.name.toLowerCase() as keyof typeof COLORS.clusters
                     ] || COLORS.primary.main;
 
-                  const isGeneratingThis =
-                    isGenerating && selectedClusterId === cluster.id;
-
                   return (
                     <TouchableOpacity
                       key={cluster.id}
-                      onPress={() => handleGenerateFromCluster(cluster.id)}
+                      onPress={() => handleClusterPress(cluster.id)}
                       activeOpacity={0.8}
-                      disabled={isGenerating}
                     >
                       <Card variant="elevated" style={styles.clusterCard}>
                         <View style={styles.clusterHeader}>
@@ -287,35 +217,25 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
                           </View>
                         </View>
 
-                        {isGeneratingThis ? (
-                          <View style={styles.generatingContainer}>
-                            <LoadingSpinner variant="dots" size="small" />
-                            <Text style={styles.generatingText}>
-                              Generating spark...
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.exploreButton}>
-                            <Text
-                              style={[
-                                styles.exploreButtonText,
-                                { color: clusterColor },
-                              ]}
-                            >
-                              Continue exploring this thread →
-                            </Text>
-                          </View>
-                        )}
+                        <View style={styles.exploreButton}>
+                          <Text
+                            style={[
+                              styles.exploreButtonText,
+                              { color: clusterColor },
+                            ]}
+                          >
+                            View journey and continue exploring →
+                          </Text>
+                        </View>
                       </Card>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Actions */}
               <View style={styles.actions}>
                 <Button
-                  title="Refresh Clusters 🔄"
+                  title="Refresh Clusters"
                   onPress={async () => {
                     await detectClusters();
                     await loadGraph();
@@ -524,60 +444,11 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: "600",
   },
-  generatingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: SPACING.sm,
-  },
-  generatingText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray600,
-    marginLeft: SPACING.sm,
-  },
   actions: {
     marginTop: SPACING.lg,
   },
   refreshButton: {
     marginTop: SPACING.md,
-  },
-  currentSparkCard: {
-    marginBottom: SPACING.lg,
-    padding: SPACING.lg,
-    borderWidth: 2,
-    borderColor: COLORS.accent.purple,
-  },
-  sparkHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.md,
-  },
-  currentSparkTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "600",
-    color: COLORS.neutral.black,
-  },
-  sparkBadge: {
-    backgroundColor: COLORS.accent.purple,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  sparkBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: "700",
-    color: COLORS.neutral.white,
-  },
-  currentSparkText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.neutral.gray800,
-    lineHeight: FONT_SIZES.md * 1.4,
-    marginBottom: SPACING.md,
-  },
-  currentSparkActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
   },
 });
 
