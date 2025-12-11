@@ -1,0 +1,207 @@
+// src/stores/sparkStore.ts
+
+import { create } from "zustand";
+import { Spark, SparkMode } from "@type/spark.types";
+import { Tag } from "@type/tag.types";
+import sparkGenerator from "@services/spark-engine/sparkGenerator";
+import conceptGraphEngine from "@services/thread-engine/conceptGraph";
+
+interface SparkState {
+  currentSpark: Spark | null;
+  recentSparks: Spark[];
+  savedSparks: Spark[];
+  isGenerating: boolean;
+  error: string | null;
+
+  // Fungsi ini memiliki beberapa versi pemanggilan
+  generateWithMode: {
+    (mode: 1 | 3, tags: Tag[]): Promise<void>;
+    (mode: 2, tags: Tag[]): Promise<void>;
+    (mode: 1 | 2 | 3, tags: Tag[], options?: { chaos?: number; layers?: number }): Promise<void>;
+  };
+  generateQuickSpark: (tags: Tag[], chaos?: number) => Promise<void>;
+  generateDeepDive: (
+    tags: Tag[],
+    layers?: number,
+    chaos?: number
+  ) => Promise<void>;
+  generateThreadSpark: (tags: Tag[], chaos?: number) => Promise<void>;
+  loadRecentSparks: (limit?: number) => Promise<void>;
+  loadSavedSparks: () => Promise<void>;
+  loadSparkById: (id: string) => Promise<void>;
+  markAsViewed: (id: string) => Promise<void>;
+  toggleSaved: (id: string) => Promise<void>;
+  clearCurrentSpark: () => void;
+  setError: (error: string | null) => void;
+}
+
+export const useSparkStore = create<SparkState>((set, get) => ({
+  currentSpark: null,
+  recentSparks: [],
+  savedSparks: [],
+  isGenerating: false,
+  error: null,
+
+  generateQuickSpark: async (tags: Tag[], chaos = 0.5) => {
+    set({ isGenerating: true, error: null });
+    try {
+      const spark = await sparkGenerator.generateQuickSpark(tags, chaos);
+
+      await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
+
+      set({ currentSpark: spark });
+
+      await get().loadRecentSparks();
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[SparkStore] Generate quick spark failed:", error);
+    } finally {
+      set({ isGenerating: false });
+    }
+  },
+
+  generateDeepDive: async (tags: Tag[], layers = 4, chaos = 0.5) => {
+    set({ isGenerating: true, error: null });
+    try {
+      const spark = await sparkGenerator.generateDeepDive(tags, layers, chaos);
+
+      await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
+
+      set({ currentSpark: spark });
+
+      await get().loadRecentSparks();
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[SparkStore] Generate deep dive failed:", error);
+    } finally {
+      set({ isGenerating: false });
+    }
+  },
+
+  generateThreadSpark: async (tags: Tag[], chaos = 0.5) => {
+    set({ isGenerating: true, error: null });
+    try {
+      const { useThreadStore } = await import("./threadStore");
+      const { clusters } = useThreadStore.getState();
+
+      const recentSparks = await sparkGenerator.getRecentSparks(10);
+
+      const spark = await sparkGenerator.generateThreadSpark(
+        tags,
+        clusters,
+        recentSparks,
+        chaos
+      );
+
+      await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
+
+      set({ currentSpark: spark });
+
+      await get().loadRecentSparks();
+
+      const threadStore = useThreadStore.getState();
+      await threadStore.refreshGraph();
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[SparkStore] Generate thread spark failed:", error);
+    } finally {
+      set({ isGenerating: false });
+    }
+  },
+
+  loadRecentSparks: async (limit = 20) => {
+    try {
+      const sparks = await sparkGenerator.getRecentSparks(limit);
+      set({ recentSparks: sparks });
+    } catch (error: any) {
+      console.error("[SparkStore] Load recent sparks failed:", error);
+    }
+  },
+
+  loadSavedSparks: async () => {
+    try {
+      const allSparks = await sparkGenerator.getAllSparks();
+      const saved = allSparks.filter((s) => s.saved);
+      set({ savedSparks: saved });
+    } catch (error: any) {
+      console.error("[SparkStore] Load saved sparks failed:", error);
+    }
+  },
+
+  loadSparkById: async (id: string) => {
+    try {
+      const spark = await sparkGenerator.getSparkById(id);
+      if (spark) {
+        set({ currentSpark: spark });
+      }
+    } catch (error: any) {
+      console.error("[SparkStore] Load spark failed:", error);
+    }
+  },
+
+  markAsViewed: async (id: string) => {
+    try {
+      await sparkGenerator.markSparkAsViewed(id);
+
+      const current = get().currentSpark;
+      if (current && current.id === id) {
+        set({ currentSpark: { ...current, viewed: true } });
+      }
+
+      await get().loadRecentSparks();
+    } catch (error: any) {
+      console.error("[SparkStore] Mark as viewed failed:", error);
+    }
+  },
+
+  toggleSaved: async (id: string) => {
+    try {
+      const newSavedState = await sparkGenerator.toggleSparkSaved(id);
+
+      const current = get().currentSpark;
+      if (current && current.id === id) {
+        set({ currentSpark: { ...current, saved: newSavedState } });
+      }
+
+      await get().loadRecentSparks();
+      await get().loadSavedSparks();
+    } catch (error: any) {
+      console.error("[SparkStore] Toggle saved failed:", error);
+    }
+  },
+
+  clearCurrentSpark: () => {
+    set({ currentSpark: null });
+  },
+
+  generateWithMode: async (mode: 1 | 2 | 3, tags: Tag[], options?: { chaos?: number; layers?: number } | undefined) => {
+    set({ isGenerating: true, error: null });
+    const chaos = options?.chaos ?? 0.5;
+    const layers = options?.layers;
+
+    try {
+      switch(mode) {
+        case 1: // Quick Spark
+          await get().generateQuickSpark(tags, chaos);
+          break;
+        case 2: // Deep Dive
+          await get().generateDeepDive(tags, layers, chaos);
+          break;
+        case 3: // Thread Spark
+          await get().generateThreadSpark(tags, chaos);
+          break;
+        default:
+          throw new Error(`Invalid mode: ${mode}`);
+      }
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[SparkStore] Generate with mode failed:", error);
+    } finally {
+      set({ isGenerating: false });
+    }
+  },
+
+  setError: (error: string | null) => {
+    set({ error });
+  },
+}));

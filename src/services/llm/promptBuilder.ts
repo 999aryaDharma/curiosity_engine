@@ -1,0 +1,210 @@
+// src/services/llm/promptBuilder.ts
+
+import { Tag } from "@type/tag.types";
+import { Spark, SparkMode } from "@type/spark.types";
+import { ConceptCluster } from "@type/thread.types";
+
+class PromptBuilder {
+  buildQuickSparkPrompt(
+    tags: Tag[],
+    chaos: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine, designed to generate thought-provoking questions that spark intellectual curiosity.
+
+Your task is to create a single "spark" - a question or observation that:
+- Connects multiple concepts in unexpected ways
+- Encourages deep thinking without being overwhelming
+- Is concise (under 280 characters)
+- Feels fresh and non-obvious
+- Includes a brief context or "why this matters"
+
+Output ONLY valid JSON with this exact structure:
+{
+  "spark": "The main curiosity-triggering question or observation",
+  "followUp": "A deeper follow-up question to explore further",
+  "conceptLinks": ["concept1", "concept2", "concept3"]
+}
+
+Rules:
+- spark must be under 280 characters
+- followUp should dig one layer deeper
+- conceptLinks should be 2-4 abstract concepts
+- Be creative and unexpected
+- Avoid clichés and obvious connections`;
+
+    const tagNames = tags.map((t) => t.name).join(", ");
+    const chaosLevel = this.describeChaosLevel(chaos);
+
+    const user = `Generate a curiosity spark using these tags: ${tagNames}
+
+Chaos level: ${chaosLevel}
+${
+  chaos > 0.5
+    ? "Make unexpected connections between seemingly unrelated concepts."
+    : "Focus on coherent, related concepts."
+}
+
+Remember: Output ONLY the JSON object, no explanations.`;
+
+    return { system, user };
+  }
+
+  buildDeepDivePrompt(
+    tags: Tag[],
+    chaos: number,
+    layers: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine's Deep Dive mode, creating multi-layer exploratory paths.
+
+Generate a sequence of ${layers} layers, where each layer:
+- Builds on the previous layer's concept
+- Offers 2 branching paths for exploration
+- Gets progressively more specific or abstract
+- Maintains intellectual coherence
+
+Output ONLY valid JSON with this exact structure:
+{
+  "layers": [
+    {
+      "layer": 1,
+      "spark": "Initial question or observation",
+      "branches": ["Path A: description", "Path B: description"]
+    },
+    {
+      "layer": 2,
+      "spark": "Deeper question building on layer 1",
+      "branches": ["Path A: description", "Path B: description"]
+    }
+  ]
+}
+
+Rules:
+- Each spark under 280 characters
+- Branches should represent genuinely different directions
+- Later layers should feel like going down a rabbit hole
+- Maintain curiosity throughout`;
+
+    const tagNames = tags.map((t) => t.name).join(", ");
+    const chaosLevel = this.describeChaosLevel(chaos);
+
+    const user = `Create a ${layers}-layer deep dive using these tags: ${tagNames}
+
+Chaos level: ${chaosLevel}
+
+Each layer should naturally flow from the previous one while offering distinct paths forward.
+
+Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
+
+  buildThreadSparkPrompt(
+    tags: Tag[],
+    clusters: ConceptCluster[],
+    recentSparks: Spark[],
+    chaos: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine's Thread mode, generating sparks based on existing concept clusters.
+
+Your task is to:
+- Analyze the user's existing conceptual map
+- Identify interesting connections or gaps
+- Generate a spark that either:
+  * Deepens understanding of a dominant cluster
+  * Connects multiple clusters in novel ways
+  * Explores an underdeveloped area
+
+Output ONLY valid JSON with this exact structure:
+{
+  "clusterSummary": "Brief analysis of the concept landscape (1-2 sentences)",
+  "newSpark": "A question or observation that builds on existing concepts",
+  "conceptReinforcement": ["existing_concept1", "existing_concept2", "new_concept"]
+}
+
+Rules:
+- Reference concepts the user has already explored
+- Make it feel like a natural continuation of their journey
+- Spark should be under 280 characters
+- Balance familiarity with novelty`;
+
+    const tagNames = tags.map((t) => t.name).join(", ");
+    const clusterSummary = clusters
+      .map(
+        (c) =>
+          `${c.name}: ${
+            c.concepts.length
+          } concepts, coherence ${c.coherence.toFixed(2)}`
+      )
+      .join("\n");
+
+    const recentSparksSummary = recentSparks
+      .slice(0, 5)
+      .map((s) => `- ${s.text.substring(0, 100)}...`)
+      .join("\n");
+
+    const user = `Current tags: ${tagNames}
+
+Existing concept clusters:
+${clusterSummary || "No clusters yet"}
+
+Recent sparks:
+${recentSparksSummary || "No recent sparks"}
+
+Chaos level: ${this.describeChaosLevel(chaos)}
+
+Generate a spark that builds on this conceptual landscape.
+
+Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
+
+  buildConceptExtractionPrompt(sparkText: string): {
+    system: string;
+    user: string;
+  } {
+    const system = `You extract key concepts from curiosity sparks.
+
+Identify 2-5 abstract concepts that are central to the question or observation.
+Concepts should be:
+- Abstract and generalizable (e.g., "time", "identity", "emergence")
+- Not too specific (avoid proper nouns unless critical)
+- Intellectually meaningful
+- Related to the core idea
+
+Output ONLY valid JSON:
+{
+  "concepts": ["concept1", "concept2", "concept3"]
+}`;
+
+    const user = `Extract key concepts from this spark:
+
+"${sparkText}"
+
+Remember: Output ONLY the JSON object with 2-5 concepts.`;
+
+    return { system, user };
+  }
+
+  private describeChaosLevel(chaos: number): string {
+    if (chaos < 0.2) return "Minimal - stay close to tag themes";
+    if (chaos < 0.5) return "Low - slight creative connections";
+    if (chaos < 0.8) return "Medium - unexpected but logical leaps";
+    return "High - maximum creative freedom, surprising connections";
+  }
+
+  buildSystemPromptForMode(mode: SparkMode): string {
+    switch (mode) {
+      case 1:
+        return "You generate quick, single-layer curiosity sparks.";
+      case 2:
+        return "You generate deep, multi-layer exploration paths.";
+      case 3:
+        return "You generate sparks that build on existing concept threads.";
+      default:
+        return "You generate curiosity sparks.";
+    }
+  }
+}
+
+export default new PromptBuilder();
