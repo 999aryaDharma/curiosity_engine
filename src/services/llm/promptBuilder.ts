@@ -17,11 +17,12 @@ Your task is to create a single "spark" - a question or observation that:
 - Is concise (under 280 characters)
 - Feels fresh and non-obvious
 - Includes a brief context or "why this matters"
+- MUST BE IN INDONESIAN LANGUAGE
 
 Output ONLY valid JSON with this exact structure:
 {
-  "spark": "The main curiosity-triggering question or observation",
-  "followUp": "A deeper follow-up question to explore further",
+  "spark": "The main curiosity-triggering question or observation in Indonesian",
+  "followUp": "A deeper follow-up question to explore further in Indonesian",
   "conceptLinks": ["concept1", "concept2", "concept3"]
 }
 
@@ -30,7 +31,8 @@ Rules:
 - followUp should dig one layer deeper
 - conceptLinks should be 2-4 abstract concepts
 - Be creative and unexpected
-- Avoid clichés and obvious connections`;
+- Avoid clichés and obvious connections
+- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
     const chaosLevel = this.describeChaosLevel(chaos);
@@ -61,19 +63,20 @@ Generate a sequence of ${layers} layers, where each layer:
 - Offers 2 branching paths for exploration
 - Gets progressively more specific or abstract
 - Maintains intellectual coherence
+- MUST BE IN INDONESIAN LANGUAGE
 
 Output ONLY valid JSON with this exact structure:
 {
   "layers": [
     {
       "layer": 1,
-      "spark": "Initial question or observation",
-      "branches": ["Path A: description", "Path B: description"]
+      "spark": "Initial question or observation in Indonesian",
+      "branches": ["Path A: description in Indonesian", "Path B: description in Indonesian"]
     },
     {
       "layer": 2,
-      "spark": "Deeper question building on layer 1",
-      "branches": ["Path A: description", "Path B: description"]
+      "spark": "Deeper question building on layer 1 in Indonesian",
+      "branches": ["Path A: description in Indonesian", "Path B: description in Indonesian"]
     }
   ]
 }
@@ -82,7 +85,8 @@ Rules:
 - Each spark under 280 characters
 - Branches should represent genuinely different directions
 - Later layers should feel like going down a rabbit hole
-- Maintain curiosity throughout`;
+- Maintain curiosity throughout
+- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
     const chaosLevel = this.describeChaosLevel(chaos);
@@ -113,11 +117,12 @@ Your task is to:
   * Deepens understanding of a dominant cluster
   * Connects multiple clusters in novel ways
   * Explores an underdeveloped area
+- ALL CONTENT MUST BE IN INDONESIAN LANGUAGE
 
 Output ONLY valid JSON with this exact structure:
 {
-  "clusterSummary": "Brief analysis of the concept landscape (1-2 sentences)",
-  "newSpark": "A question or observation that builds on existing concepts",
+  "clusterSummary": "Brief analysis of the concept landscape in Indonesian (1-2 sentences)",
+  "newSpark": "A question or observation that builds on existing concepts in Indonesian",
   "conceptReinforcement": ["existing_concept1", "existing_concept2", "new_concept"]
 }
 
@@ -125,7 +130,8 @@ Rules:
 - Reference concepts the user has already explored
 - Make it feel like a natural continuation of their journey
 - Spark should be under 280 characters
-- Balance familiarity with novelty`;
+- Balance familiarity with novelty
+- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
     const clusterSummary = clusters
@@ -163,7 +169,7 @@ Remember: Output ONLY the JSON object.`;
     system: string;
     user: string;
   } {
-    const system = `You extract key concepts from curiosity sparks.
+    const system = `You extract key concepts from curiosity sparks in Indonesian.
 
 Identify 2-5 abstract concepts that are central to the question or observation.
 Concepts should be:
@@ -171,13 +177,14 @@ Concepts should be:
 - Not too specific (avoid proper nouns unless critical)
 - Intellectually meaningful
 - Related to the core idea
+- When possible, use Indonesian-related concepts or translate concepts to Indonesian
 
 Output ONLY valid JSON:
 {
   "concepts": ["concept1", "concept2", "concept3"]
 }`;
 
-    const user = `Extract key concepts from this spark:
+    const user = `Extract key concepts from this Indonesian spark:
 
 "${sparkText}"
 

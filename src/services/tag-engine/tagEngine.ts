@@ -4,7 +4,8 @@ import { Tag, DailyTagSelection } from "@type/tag.types";
 import tagRepository from "./tagRepository";
 import adaptiveRandomizer from "./adaptiveRandomizer";
 import sqliteService from "@services/storage/sqliteService";
-import {mmkvService} from "@services/storage/mmkvService";
+import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
+import { mmkvService } from "@services/storage/mmkvService";
 import { v4 as uuidv4 } from "uuid";
 
 class TagEngine {
@@ -42,7 +43,7 @@ class TagEngine {
     return {
       id: row.id,
       date: row.date,
-      tags: JSON.parse(row.tags as any),
+      tags: safeJSONParse(row.tags as unknown as string, []),
       isManuallyEdited: Boolean(row.isManuallyEdited),
       createdAt: row.createdAt,
     };
@@ -78,7 +79,7 @@ class TagEngine {
     await sqliteService.insert("daily_tag_selections", {
       id: dailySelection.id,
       date: dailySelection.date,
-      tags: JSON.stringify(dailySelection.tags),
+      tags: safeJSONStringify(dailySelection.tags, "[]"),
       is_manually_edited: 0,
       created_at: dailySelection.createdAt,
     });
@@ -100,7 +101,7 @@ class TagEngine {
     await sqliteService.update(
       "daily_tag_selections",
       {
-        tags: JSON.stringify(tagIds),
+        tags: safeJSONStringify(tagIds, "[]"),
         is_manually_edited: 1,
       },
       "date = ?",

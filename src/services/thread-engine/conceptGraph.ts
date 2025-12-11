@@ -9,6 +9,7 @@ import sqliteService from "@services/storage/sqliteService";
 import llmClient from "@services/llm/llmClient";
 import promptBuilder from "@services/llm/promptBuilder";
 import responseValidator from "@services/llm/responseValidator";
+import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 import { v4 as uuidv4 } from "uuid";
 
 class ConceptGraphEngine {
@@ -298,7 +299,7 @@ class ConceptGraphEngine {
       description: row.description,
       cluster: row.cluster,
       weight: row.weight,
-      sparkIds: JSON.parse(row.spark_ids),
+      sparkIds: safeJSONParse(row.spark_ids, []),
       createdAt: row.created_at,
       lastUpdated: row.last_updated,
     };
@@ -312,7 +313,7 @@ class ConceptGraphEngine {
       strength: row.strength,
       linkType: row.link_type,
       lastUpdate: row.last_update,
-      sparkIds: JSON.parse(row.spark_ids),
+      sparkIds: safeJSONParse(row.spark_ids, []),
     };
   }
 }

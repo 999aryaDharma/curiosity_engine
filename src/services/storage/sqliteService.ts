@@ -29,6 +29,7 @@ class SQLiteService {
   private async runMigrations(): Promise<void> {
     if (!this.db) throw new Error("Database not opened");
 
+    // First, create tables with the correct schema
     const statements = [
       // Tags Table
       `CREATE TABLE IF NOT EXISTS tags (
@@ -52,22 +53,6 @@ class SQLiteService {
         created_at INTEGER NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS idx_daily_tags_date ON daily_tag_selections(date)`,
-
-      // Sparks Table
-      `CREATE TABLE IF NOT EXISTS sparks (
-        id TEXT PRIMARY KEY,
-        text TEXT NOT NULL,
-        tags TEXT NOT NULL,
-        mode INTEGER NOT NULL,
-        layers TEXT,
-        concept_links TEXT,
-        follow_up TEXT,
-        created_at INTEGER NOT NULL,
-        viewed INTEGER DEFAULT 0,
-        saved INTEGER DEFAULT 0
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)`,
-      `CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)`,
 
       // Concept Nodes
       `CREATE TABLE IF NOT EXISTS concept_nodes (
@@ -133,9 +118,83 @@ class SQLiteService {
     ];
 
     try {
+      // Execute basic table creation statements first
       for (const statement of statements) {
         await this.db.execAsync(statement);
       }
+
+      // Create the sparks table (this will be a no-op if it already exists)
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS sparks (
+          id TEXT PRIMARY KEY,
+          text TEXT NOT NULL,
+          tags TEXT NOT NULL,
+          mode INTEGER NOT NULL,
+          layers TEXT,
+          concept_links TEXT,
+          follow_up TEXT,
+          created_at INTEGER NOT NULL,
+          viewed INTEGER DEFAULT 0,
+          saved INTEGER DEFAULT 0
+        )
+      `);
+
+      // Check for missing columns and handle migration if needed
+      const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(sparks);");
+      const columnNames = tableInfo.map(col => col.name);
+
+      const requiredColumns = ['id', 'text', 'tags', 'mode', 'layers', 'concept_links', 'follow_up', 'created_at', 'viewed', 'saved'];
+      const missingColumns = requiredColumns.filter(col => !columnNames.includes(col));
+
+      if (missingColumns.length > 0) {
+        console.log(`[SQLite] Missing columns in sparks table:`, missingColumns);
+
+        // If any critical columns are missing, recreate the table with all columns
+        const existingSparks = await this.db.getAllAsync<any>("SELECT * FROM sparks;");
+
+        // Drop the old table
+        await this.db.execAsync("DROP TABLE sparks;");
+
+        // Create the new table with the correct schema
+        await this.db.execAsync(`
+          CREATE TABLE sparks (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            tags TEXT NOT NULL,
+            mode INTEGER NOT NULL,
+            layers TEXT,
+            concept_links TEXT,
+            follow_up TEXT,
+            created_at INTEGER NOT NULL,
+            viewed INTEGER DEFAULT 0,
+            saved INTEGER DEFAULT 0
+          )
+        `);
+
+        // Re-insert data, ensuring all columns exist
+        for (const spark of existingSparks) {
+          await this.db.runAsync(`
+            INSERT INTO sparks (id, text, tags, mode, layers, concept_links, follow_up, created_at, viewed, saved)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            spark.id || null,
+            spark.text || null,
+            spark.tags || null,
+            spark.mode || null,
+            spark.layers || null,
+            spark.concept_links || null,
+            spark.follow_up || null,
+            spark.created_at || Date.now(),
+            spark.viewed || 0,
+            spark.saved || 0
+          ]);
+        }
+      }
+
+      // Create indexes for the sparks table after ensuring it has the correct schema
+      await this.db.execAsync("CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)");
+      await this.db.execAsync("CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)");
+
       console.log("[SQLite] Migrations completed");
     } catch (error) {
       console.error("[SQLite] Migration failed:", error);

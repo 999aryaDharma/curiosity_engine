@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, ActivityIndicator } from "react-native";
+import Constants from "expo-constants";
 
 // Screens
 import OnboardingScreen from "@screens/onboarding/OnboardingScreen";
@@ -16,7 +17,7 @@ import SettingsScreen from "@screens/settings/SettingsScreen";
 
 // Services
 import sqliteService from "@services/storage/sqliteService";
-import {mmkvService} from "@services/storage/mmkvService";
+import { mmkvService } from "@services/storage/mmkvService";
 import llmClient from "@services/llm/llmClient";
 import tagEngine from "@services/tag-engine/tagEngine";
 import { getDefaultTagsWithIds } from "@constants/defaultTags";
@@ -37,6 +38,16 @@ export const AppNavigator: React.FC = () => {
   const initializeApp = async () => {
     try {
       console.log("[App] Initializing...");
+
+      // 1. Load API Key from expo-constants
+      const apiKey = Constants.expoConfig?.extra?.geminiApiKey;
+
+      if (apiKey) {
+        llmClient.setApiKey(apiKey);
+        console.log("[App] Gemini API key loaded");
+      } else {
+        console.warn("[App] No Gemini API key found in configuration");
+      }
 
       // 1. Initialize Database
       await sqliteService.initialize();

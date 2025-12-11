@@ -5,12 +5,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Animated,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
@@ -29,7 +29,7 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
   navigation,
 }) => {
   const { dailyTags } = useTagStore();
-  const { currentSpark, isGenerating, generateWithMode } = useSparkStore();
+  const { currentSpark, isGenerating, generateWithMode, clearCurrentSpark } = useSparkStore();
   const { settings } = useSettingsStore();
 
   const [currentLayerIndex, setCurrentLayerIndex] = useState(0);
@@ -39,10 +39,18 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (currentSpark?.layers) {
+    // If there's no current spark or it's not a Deep Dive, load daily tags and prepare for generation
+    if (!currentSpark || currentSpark.mode !== 2) {
+      if (currentSpark && currentSpark.mode !== 2) {
+        clearCurrentSpark(); // Clear non-DeepDive sparks
+      }
+      // Load daily tags for potential generation
+      useTagStore.getState().loadDailyTags();
+    } else if (currentSpark?.layers) {
+      // Animate if we have a proper deep dive
       animateEntrance();
     }
-  }, [currentSpark, currentLayerIndex]);
+  }, [currentSpark, currentLayerIndex, clearCurrentSpark]);
 
   const animateEntrance = () => {
     fadeAnim.setValue(0);
@@ -127,7 +135,7 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {!currentSpark ? (
+          {!currentSpark || currentSpark.mode !== 2 ? (
             // Initial State
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌊🧭✨</Text>
@@ -161,32 +169,34 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
             </View>
           ) : (
             <>
-              {/* Progress Bar */}
-              <View style={styles.progressSection}>
-                <Text style={styles.progressLabel}>
-                  Layer {currentLayerIndex + 1} of{" "}
-                  {currentSpark.layers?.length || 0}
-                </Text>
-                <View style={styles.progressBar}>
-                  {currentSpark.layers?.map((_, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() =>
-                        index <= currentLayerIndex && handleGoToLayer(index)
-                      }
-                      style={
-                        index <= currentLayerIndex
-                          ? [styles.progressDot, styles.progressDotActive]
-                          : styles.progressDot
-                      }
-                    >
-                      {selectedBranches[index] && (
-                        <Text style={styles.progressDotCheck}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
+              {/* Progress Bar - only show if current spark is a Deep Dive */}
+              {currentSpark?.mode === 2 && currentSpark.layers && (
+                <View style={styles.progressSection}>
+                  <Text style={styles.progressLabel}>
+                    Layer {currentLayerIndex + 1} of{" "}
+                    {currentSpark.layers?.length || 0}
+                  </Text>
+                  <View style={styles.progressBar}>
+                    {currentSpark.layers?.map((_, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() =>
+                          index <= currentLayerIndex && handleGoToLayer(index)
+                        }
+                        style={
+                          index <= currentLayerIndex
+                            ? [styles.progressDot, styles.progressDotActive]
+                            : styles.progressDot
+                        }
+                      >
+                        {selectedBranches[index] && (
+                          <Text style={styles.progressDotCheck}>✓</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Current Layer */}
               {currentLayer && (

@@ -5,16 +5,17 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Animated,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
 import { useSparkStore } from "@stores/sparkStore";
 import { useTagStore } from "@stores/tagStore";
+import { useSettingsStore } from "@stores/settingsStore";
 import Card from "@components/common/Card";
 import Button from "@components/common/Button";
 import LoadingSpinner from "@components/common/LoadingSpinner";
@@ -26,7 +27,7 @@ interface ThreadScreenProps {
 
 export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
   const { clusters, stats, isLoading, loadGraph, detectClusters } = useThreadStore();
-  const { generateWithMode, isGenerating } = useSparkStore();
+  const { currentSpark, generateWithMode, isGenerating } = useSparkStore();
   const { dailyTags } = useTagStore();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -57,7 +58,9 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
 
     try {
       await generateWithMode(3, dailyTags);
-      // Navigate to result or show success
+
+      // Show success message
+      Alert.alert("Success", "Thread spark generated successfully!");
     } catch (err: any) {
       Alert.alert("Error", err.message);
     }
@@ -156,6 +159,22 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
                   </View>
                 </View>
               </Card>
+
+              {/* Current Spark Display - if exists */}
+              {currentSpark && (
+                <Card variant="elevated" style={styles.currentSparkCard}>
+                  <Text style={styles.currentSparkTitle}>Recent Thread Spark</Text>
+                  <Text style={styles.currentSparkText}>{currentSpark.text}</Text>
+                  <View style={styles.currentSparkActions}>
+                    <Button
+                      title="View Details"
+                      onPress={() => navigation.navigate("QuickSpark")}
+                      variant="outline"
+                      size="small"
+                    />
+                  </View>
+                </Card>
+              )}
 
               {/* Clusters */}
               <View style={styles.section}>
@@ -463,6 +482,26 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginTop: SPACING.md,
+  },
+  currentSparkCard: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
+  },
+  currentSparkTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "600",
+    color: COLORS.neutral.black,
+    marginBottom: SPACING.md,
+  },
+  currentSparkText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.neutral.gray800,
+    lineHeight: FONT_SIZES.md * 1.4,
+    marginBottom: SPACING.md,
+  },
+  currentSparkActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
 });
 

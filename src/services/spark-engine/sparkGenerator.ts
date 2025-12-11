@@ -1,5 +1,3 @@
-// src/services/spark-engine/sparkGenerator.ts
-
 import llmClient from "@services/llm/llmClient";
 import promptBuilder from "@services/llm/promptBuilder";
 import responseValidator from "@services/llm/responseValidator";
@@ -16,6 +14,7 @@ import { ConceptCluster } from "@type/thread.types";
 import sqliteService from "@services/storage/sqliteService";
 import { v4 as uuidv4 } from "uuid";
 import { LLM_CONFIG } from "@constants/config";
+import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 
 class SparkGenerator {
   async generateQuickSpark(tags: Tag[], chaos: number = 0.5): Promise<Spark> {
@@ -203,10 +202,10 @@ class SparkGenerator {
     await sqliteService.insert("sparks", {
       id: spark.id,
       text: spark.text,
-      tags: JSON.stringify(spark.tags),
+      tags: safeJSONStringify(spark.tags, "[]"),
       mode: spark.mode,
-      layers: spark.layers ? JSON.stringify(spark.layers) : null,
-      concept_links: JSON.stringify(spark.conceptLinks),
+      layers: spark.layers ? safeJSONStringify(spark.layers, "null") : null,
+      concept_links: safeJSONStringify(spark.conceptLinks, "[]"),
       follow_up: spark.followUp || null,
       created_at: spark.createdAt,
       viewed: spark.viewed ? 1 : 0,
@@ -232,7 +231,7 @@ class SparkGenerator {
       `SELECT * FROM sparks ORDER BY created_at DESC`
     );
 
-    return rows.map(this.mapRowToSpark);
+    return rows.map((row) => this.mapRowToSpark(row));
   }
 
   async getRecentSparks(limit: number = 20): Promise<Spark[]> {
@@ -241,7 +240,7 @@ class SparkGenerator {
       [limit]
     );
 
-    return rows.map(this.mapRowToSpark);
+    return rows.map((row) => this.mapRowToSpark(row));
   }
 
   async getSparksByMode(mode: SparkMode): Promise<Spark[]> {
@@ -250,7 +249,7 @@ class SparkGenerator {
       [mode]
     );
 
-    return rows.map(this.mapRowToSpark);
+    return rows.map((row) => this.mapRowToSpark(row));
   }
 
   async markSparkAsViewed(id: string): Promise<void> {
@@ -276,10 +275,10 @@ class SparkGenerator {
     return {
       id: row.id,
       text: row.text,
-      tags: JSON.parse(row.tags),
+      tags: safeJSONParse(row.tags, []),
       mode: row.mode,
-      layers: row.layers ? JSON.parse(row.layers) : undefined,
-      conceptLinks: JSON.parse(row.concept_links),
+      layers: row.layers ? safeJSONParse(row.layers, undefined) : undefined,
+      conceptLinks: safeJSONParse(row.concept_links, []),
       followUp: row.follow_up,
       createdAt: row.created_at,
       viewed: Boolean(row.viewed),

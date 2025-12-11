@@ -52,29 +52,21 @@ class LLMClient {
   }
 
   private async generateGemini(request: LLMRequest): Promise<LLMResponse> {
-    const systemInstruction = request.systemPrompt
-      ? {
-          parts: [
-            {
-              text: request.systemPrompt,
-            },
-          ],
-        }
-      : undefined;
+    // For Gemini API, system instructions need to be part of the content
+    const contentParts = [
+      {
+        text: request.systemPrompt ? `${request.systemPrompt}\n\n${request.prompt}` : request.prompt,
+      },
+    ];
 
     const response = await this.client.post(
       `/models/${LLM_CONFIG.GEMINI.MODEL}:generateContent?key=${this.apiKey}`,
       {
         contents: [
           {
-            parts: [
-              {
-                text: request.prompt,
-              },
-            ],
+            parts: contentParts,
           },
         ],
-        systemInstruction,
         generationConfig: {
           temperature: request.temperature || LLM_CONFIG.GEMINI.TEMPERATURE,
         },

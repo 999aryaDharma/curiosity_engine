@@ -4,6 +4,7 @@ import { Tag, TagSelectionStrategy } from "@type/tag.types";
 import { TAG_SELECTION_CONFIG } from "@constants/defaultTags";
 import tagRepository from "./tagRepository";
 import sqliteService from "@services/storage/sqliteService";
+import { safeJSONParse } from "@utils/jsonUtils";
 
 class AdaptiveRandomizer {
   async selectDailyTags(
@@ -134,12 +135,8 @@ class AdaptiveRandomizer {
 
     const deepDiveTagIds = new Set<string>();
     recentSparks.forEach((spark) => {
-      try {
-        const tagIds = JSON.parse(spark.tags);
-        tagIds.forEach((id: string) => deepDiveTagIds.add(id));
-      } catch (e) {
-        console.error("Failed to parse spark tags:", e);
-      }
+      const tagIds = safeJSONParse(spark.tags, []);
+      tagIds.forEach((id: string) => deepDiveTagIds.add(id));
     });
 
     const eligibleTags = allTags.filter(

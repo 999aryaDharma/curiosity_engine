@@ -5,11 +5,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useSparkStore } from "@stores/sparkStore";
 import { SparkMode } from "@type/spark.types";
 import SparkCard from "@components/spark/SparkCard";

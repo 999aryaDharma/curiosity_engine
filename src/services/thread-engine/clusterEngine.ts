@@ -8,6 +8,7 @@ import {
 } from "@type/thread.types";
 import sqliteService from "@services/storage/sqliteService";
 import conceptGraphEngine from "./conceptGraph";
+import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 import { v4 as uuidv4 } from "uuid";
 
 class ClusterEngine {
@@ -264,7 +265,7 @@ class ClusterEngine {
       id: row.id,
       name: row.name,
       description: row.description,
-      concepts: JSON.parse(row.concepts),
+      concepts: safeJSONParse(row.concepts, []),
       coherence: row.coherence,
       sparkCount: row.spark_count,
       lastUpdated: row.last_updated,

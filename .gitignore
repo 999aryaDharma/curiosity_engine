@@ -41,3 +41,11 @@ yarn-error.*
 /android
 
 .env
+
+project.md
+
+# Fixing files
+fixing*
+
+# Docs folder
+docs/

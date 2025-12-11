@@ -1,5 +1,5 @@
 // App.tsx
-
+import "react-native-get-random-values";
 import React, { useEffect } from "react";
 import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
