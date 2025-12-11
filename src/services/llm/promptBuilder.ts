@@ -2,7 +2,7 @@
 
 import { Tag } from "@type/tag.types";
 import { Spark, SparkMode } from "@type/spark.types";
-import { ConceptCluster } from "@type/thread.types";
+import { ConceptCluster, ConceptNode } from "@type/thread.types";
 
 class PromptBuilder {
   buildQuickSparkPrompt(
@@ -159,6 +159,89 @@ ${recentSparksSummary || "No recent sparks"}
 Chaos level: ${this.describeChaosLevel(chaos)}
 
 Generate a spark that builds on this conceptual landscape.
+
+Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
+
+  // NEW: Prompt khusus untuk Thread Spark dari Cluster
+  buildThreadSparkFromClusterPrompt(
+    cluster: ConceptCluster,
+    conceptNodes: ConceptNode[],
+    historySparks: Spark[],
+    chaos: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine's Thread mode, continuing exploration within a specific concept cluster.
+
+Your task is to generate a NEW spark that:
+1. BUILDS ON existing concepts in the cluster "${cluster.name}"
+2. EXTENDS the thread by introducing related but fresh angles
+3. MAINTAINS coherence with cluster theme (${Math.round(
+      cluster.coherence * 100
+    )}% coherent)
+4. ADDS ${Math.round(chaos * 100)}% serendipity to avoid echo chamber
+5. MUST BE IN INDONESIAN LANGUAGE
+
+This is NOT a random spark. This is a continuation of an intellectual journey.
+
+Output ONLY valid JSON:
+{
+  "clusterSummary": "Brief 1-sentence analysis of this cluster's theme in Indonesian",
+  "newSpark": "A question that extends this thread in Indonesian (under 280 chars)",
+  "conceptReinforcement": ["concept1_from_cluster", "concept2_from_cluster", "new_concept_to_add"]
+}
+
+Rules:
+- Reference at least 2 existing concepts from this cluster
+- Introduce 1 new concept that enriches the cluster
+- Keep it intellectually stimulating but not overwhelming
+- The spark should feel like "chapter ${
+      cluster.sparkCount + 1
+    }" of this exploration
+- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+
+    // Extract concept names
+    const conceptNames = conceptNodes.map((n) => n.name).join(", ");
+
+    // Extract dominant concepts (top 3 by weight)
+    const dominantConcepts = conceptNodes
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 3)
+      .map((n) => `${n.name} (weight: ${n.weight.toFixed(2)})`)
+      .join(", ");
+
+    // Extract recent spark excerpts
+    const recentSparksSummary =
+      historySparks.length > 0
+        ? historySparks
+            .slice(0, 3)
+            .map((s, i) => `${i + 1}. "${s.text.substring(0, 80)}..."`)
+            .join("\n")
+        : "No previous sparks in this cluster yet.";
+
+    const user = `CLUSTER: "${cluster.name}"
+Coherence: ${Math.round(cluster.coherence * 100)}%
+Total sparks: ${cluster.sparkCount}
+Concepts (${conceptNodes.length}): ${conceptNames}
+
+DOMINANT CONCEPTS:
+${dominantConcepts}
+
+RECENT SPARKS IN THIS CLUSTER:
+${recentSparksSummary}
+
+CHAOS LEVEL: ${this.describeChaosLevel(chaos)}
+
+Generate a spark that:
+- Continues the exploration of "${cluster.name}"
+- References existing concepts: ${dominantConcepts.split(",")[0]}, ${
+      dominantConcepts.split(",")[1] || conceptNames.split(",")[0]
+    }
+- Introduces 1 new related concept
+- Maintains ${Math.round((1 - chaos) * 100)}% coherence, ${Math.round(
+      chaos * 100
+    )}% novelty
 
 Remember: Output ONLY the JSON object.`;
 

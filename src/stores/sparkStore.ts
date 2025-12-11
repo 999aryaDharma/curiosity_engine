@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { Spark, SparkMode } from "@type/spark.types";
 import { Tag } from "@type/tag.types";
+import { ConceptCluster } from "@type/thread.types";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 
@@ -13,11 +14,14 @@ interface SparkState {
   isGenerating: boolean;
   error: string | null;
 
-  // Fungsi ini memiliki beberapa versi pemanggilan
   generateWithMode: {
     (mode: 1 | 3, tags: Tag[]): Promise<void>;
     (mode: 2, tags: Tag[]): Promise<void>;
-    (mode: 1 | 2 | 3, tags: Tag[], options?: { chaos?: number; layers?: number }): Promise<void>;
+    (
+      mode: 1 | 2 | 3,
+      tags: Tag[],
+      options?: { chaos?: number; layers?: number }
+    ): Promise<void>;
   };
   generateQuickSpark: (tags: Tag[], chaos?: number) => Promise<void>;
   generateDeepDive: (
@@ -26,6 +30,13 @@ interface SparkState {
     chaos?: number
   ) => Promise<void>;
   generateThreadSpark: (tags: Tag[], chaos?: number) => Promise<void>;
+
+  // NEW: Thread Spark dari Cluster
+  generateThreadSparkFromCluster: (
+    clusterId: string,
+    chaos?: number
+  ) => Promise<void>;
+
   loadRecentSparks: (limit?: number) => Promise<void>;
   loadSavedSparks: () => Promise<void>;
   loadSparkById: (id: string) => Promise<void>;
@@ -109,6 +120,38 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     }
   },
 
+  // NEW: Generate Thread Spark dari Cluster Spesifik
+  generateThreadSparkFromCluster: async (clusterId: string, chaos = 0.5) => {
+    set({ isGenerating: true, error: null });
+    try {
+      const spark = await sparkGenerator.generateThreadSparkFromCluster(
+        clusterId,
+        chaos
+      );
+
+      // Process concepts dari spark baru
+      await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
+
+      set({ currentSpark: spark });
+
+      await get().loadRecentSparks();
+
+      // Refresh graph untuk update clustering
+      const { useThreadStore } = await import("./threadStore");
+      const threadStore = useThreadStore.getState();
+      await threadStore.refreshGraph();
+      await threadStore.detectClusters();
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error(
+        "[SparkStore] Generate thread spark from cluster failed:",
+        error
+      );
+    } finally {
+      set({ isGenerating: false });
+    }
+  },
+
   loadRecentSparks: async (limit = 20) => {
     try {
       const sparks = await sparkGenerator.getRecentSparks(limit);
@@ -174,20 +217,24 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     set({ currentSpark: null });
   },
 
-  generateWithMode: async (mode: 1 | 2 | 3, tags: Tag[], options?: { chaos?: number; layers?: number } | undefined) => {
+  generateWithMode: async (
+    mode: 1 | 2 | 3,
+    tags: Tag[],
+    options?: { chaos?: number; layers?: number } | undefined
+  ) => {
     set({ isGenerating: true, error: null });
     const chaos = options?.chaos ?? 0.5;
     const layers = options?.layers;
 
     try {
-      switch(mode) {
-        case 1: // Quick Spark
+      switch (mode) {
+        case 1:
           await get().generateQuickSpark(tags, chaos);
           break;
-        case 2: // Deep Dive
+        case 2:
           await get().generateDeepDive(tags, layers, chaos);
           break;
-        case 3: // Thread Spark
+        case 3:
           await get().generateThreadSpark(tags, chaos);
           break;
         default:

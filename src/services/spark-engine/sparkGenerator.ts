@@ -1,6 +1,10 @@
+// src/services/spark-engine/sparkGenerator.ts
+
 import llmClient from "@services/llm/llmClient";
 import promptBuilder from "@services/llm/promptBuilder";
 import responseValidator from "@services/llm/responseValidator";
+import clusterEngine from "@services/thread-engine/clusterEngine";
+import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 import {
   Spark,
   SparkMode,
@@ -10,10 +14,9 @@ import {
   SparkLayer,
 } from "@type/spark.types";
 import { Tag } from "@type/tag.types";
-import { ConceptCluster } from "@type/thread.types";
+import { ConceptCluster, ConceptNode } from "@type/thread.types";
 import sqliteService from "@services/storage/sqliteService";
 import { v4 as uuidv4 } from "uuid";
-import { LLM_CONFIG } from "@constants/config";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 
 class SparkGenerator {
@@ -162,6 +165,98 @@ class SparkGenerator {
     };
 
     await this.saveSpark(spark);
+
+    return spark;
+  }
+
+  // NEW: Generate Thread Spark dari Cluster Spesifik
+  async generateThreadSparkFromCluster(
+    clusterId: string,
+    chaos: number = 0.5
+  ): Promise<Spark> {
+    console.log(
+      `[SparkGenerator] Generating thread spark from cluster: ${clusterId}`
+    );
+
+    // 1. Ambil cluster data
+    const cluster = await clusterEngine.getClusterById(clusterId);
+    if (!cluster) {
+      throw new Error(`Cluster not found: ${clusterId}`);
+    }
+
+    // 2. Ambil concept nodes dalam cluster
+    const conceptNodes = await Promise.all(
+      cluster.concepts.map((id) => conceptGraphEngine.getConceptById(id))
+    );
+    const validNodes = conceptNodes.filter((n): n is ConceptNode => n !== null);
+
+    if (validNodes.length === 0) {
+      throw new Error(`No concepts found in cluster: ${clusterId}`);
+    }
+
+    // 3. Ambil history sparks dari cluster
+    const allSparkIds = new Set<string>();
+    validNodes.forEach((node) => {
+      node.sparkIds.forEach((id) => allSparkIds.add(id));
+    });
+
+    const historySparks = await Promise.all(
+      Array.from(allSparkIds)
+        .slice(0, 5)
+        .map((id) => this.getSparkById(id))
+    );
+    const validHistorySparks = historySparks.filter(
+      (s): s is Spark => s !== null
+    );
+
+    // 4. Build prompt khusus untuk cluster ini
+    const { system, user } = promptBuilder.buildThreadSparkFromClusterPrompt(
+      cluster,
+      validNodes,
+      validHistorySparks,
+      chaos
+    );
+
+    const startTime = Date.now();
+    const llmResponse = await llmClient.generateWithRetry({
+      prompt: user,
+      systemPrompt: system,
+      temperature: 0.7 + chaos * 0.2,
+      maxTokens: 600,
+    });
+    const duration = Date.now() - startTime;
+
+    console.log(
+      `[SparkGenerator] Thread spark from cluster generated in ${duration}ms`
+    );
+
+    const sanitized = responseValidator.sanitizeResponse(llmResponse.content);
+    const validation = responseValidator.validateThreadSpark(sanitized);
+
+    if (!validation.isValid) {
+      console.error("[SparkGenerator] Validation failed:", validation.errors);
+      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+    }
+
+    const data = validation.data as ThreadSparkResponse;
+
+    // 5. Create spark dengan referensi ke cluster
+    const spark: Spark = {
+      id: uuidv4(),
+      text: data.newSpark,
+      tags: [], // Thread spark tidak menggunakan daily tags
+      mode: 3,
+      conceptLinks: data.conceptReinforcement,
+      createdAt: Date.now(),
+      viewed: false,
+      saved: false,
+    };
+
+    await this.saveSpark(spark);
+
+    console.log(
+      `[SparkGenerator] Thread spark created with ${data.conceptReinforcement.length} concept links`
+    );
 
     return spark;
   }
