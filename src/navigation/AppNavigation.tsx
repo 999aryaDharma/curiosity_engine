@@ -47,15 +47,6 @@ export const AppNavigator: React.FC = () => {
       await tagEngine.initializeDefaultTags(defaultTags);
       console.log("[App] Tags initialized");
 
-      // 3. Setup Gemini API
-      const apiKey = process.env.GEMINI_API_KEY || "";
-      if (apiKey) {
-        llmClient.setApiKey(apiKey);
-        console.log("[App] Gemini API configured");
-      } else {
-        console.warn("[App] GEMINI_API_KEY not found in environment");
-      }
-
       // 4. Check if onboarding is complete
       const onboardingComplete = await mmkvService.getOnboardingComplete();
       setInitialRoute(onboardingComplete ? "Home" : "Onboarding");
