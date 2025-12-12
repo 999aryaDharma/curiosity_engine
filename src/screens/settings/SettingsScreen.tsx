@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSettingsStore } from "@stores/settingsStore";
 import { useThreadStore } from "@stores/threadStore";
+import notificationService from "@/services/notifications/notificationService";
 import Card from "@components/common/Card";
 import Button from "@components/common/Button";
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
@@ -75,9 +76,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     );
   };
 
+  const handleToggleNotifications = async (value: boolean) => {
+    setNotifications(value);
+
+    if (value) {
+      await notificationService.initialize();
+      await notificationService.scheduleSparkReminder();
+      Alert.alert(
+        "Notifications Enabled",
+        "You will receive daily reminders to generate sparks."
+      );
+    } else {
+      await notificationService.cancelAllNotifications();
+      Alert.alert(
+        "Notifications Disabled",
+        "Daily reminders have been turned off."
+      );
+    }
+  };
+
+  const handleTestNotification = async () => {
+    await notificationService.sendTestNotification();
+    Alert.alert("Test Sent", "You should receive a notification in 2 seconds.");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -85,7 +109,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>⚙️ Settings</Text>
+        <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -93,7 +117,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Appearance */}
         <Text style={styles.sectionTitle}>Appearance</Text>
 
         <Card variant="elevated" style={styles.settingsCard}>
@@ -129,13 +152,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
         </Card>
 
-        {/* Spark Generation */}
         <Text style={styles.sectionTitle}>Spark Generation</Text>
 
         <Card variant="elevated" style={styles.settingsCard}>
           <View style={styles.sliderRow}>
             <View>
-              <Text style={styles.settingTitle}>🎲 Chaos Level</Text>
+              <Text style={styles.settingTitle}>Chaos Level</Text>
               <Text style={styles.settingSubtitle}>
                 {Math.round(settings.chaosLevel * 100)}% -{" "}
                 {getChaosLabel(settings.chaosLevel)}
@@ -146,9 +168,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.sliderContainer}>
             <View style={styles.sliderTrack}>
               <LinearGradient
-                // We use a type assertion here to satisfy LinearGradient's requirement
-                // for a tuple with at least two colors. This assures TypeScript that
-                // our gradient constant is always valid.
                 colors={
                   COLORS.gradients.twilight as [string, string, ...string[]]
                 }
@@ -184,7 +203,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <View style={styles.sliderRow}>
             <View>
-              <Text style={styles.settingTitle}>🌊 Deep Dive Layers</Text>
+              <Text style={styles.settingTitle}>Deep Dive Layers</Text>
               <Text style={styles.settingSubtitle}>
                 {settings.maxDeepDiveLayers} layers
               </Text>
@@ -216,7 +235,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </Card>
 
-        {/* Notifications */}
         <Text style={styles.sectionTitle}>Notifications</Text>
 
         <Card variant="elevated" style={styles.settingsCard}>
@@ -227,7 +245,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             rightComponent={
               <Switch
                 value={settings.notificationsEnabled}
-                onValueChange={setNotifications}
+                onValueChange={handleToggleNotifications}
                 trackColor={{
                   false: COLORS.neutral.gray300,
                   true: COLORS.primary.light,
@@ -240,9 +258,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               />
             }
           />
+
+          {settings.notificationsEnabled && (
+            <>
+              <Divider />
+              <SettingRow
+                icon="🧪"
+                title="Test Notification"
+                subtitle="Send a test notification"
+                onPress={handleTestNotification}
+                showChevron
+              />
+            </>
+          )}
         </Card>
 
-        {/* Data Management */}
         <Text style={styles.sectionTitle}>Data Management</Text>
 
         <Card variant="elevated" style={styles.settingsCard}>
@@ -306,7 +336,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
         </Card>
 
-        {/* About */}
         <Text style={styles.sectionTitle}>About</Text>
 
         <Card variant="elevated" style={styles.settingsCard}>
@@ -333,7 +362,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
         </Card>
 
-        {/* Danger Zone */}
         <Text style={styles.sectionTitle}>Danger Zone</Text>
 
         <Card
@@ -368,7 +396,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   );
 };
 
-// Helper Components
 const SettingRow: React.FC<{
   icon: string;
   title: string;

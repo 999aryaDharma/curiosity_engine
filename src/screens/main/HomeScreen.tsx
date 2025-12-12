@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
+import notificationService from "@/services/notifications/notificationService";
 import TagChip from "@components/tags/TagChip";
 import SparkCard from "@components/spark/SparkCard";
 import Button from "@components/common/Button";
@@ -49,7 +50,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   useEffect(() => {
     loadData();
 
-    // Entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -68,6 +68,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const loadData = async () => {
     await loadDailyTags();
     await loadRecentSparks(5);
+    await notificationService.scheduleSparkReminder();
   };
 
   const handleRefresh = async () => {
@@ -121,7 +122,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
         <Animated.View
           style={[
             styles.header,
@@ -133,7 +133,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         >
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>Good day! 👋</Text>
+              <Text style={styles.greeting}>Good day!</Text>
               <Text style={styles.date}>{formatDate(Date.now(), "long")}</Text>
             </View>
             <TouchableOpacity
@@ -145,7 +145,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </Animated.View>
 
-        {/* Today's Tags Section */}
         <Animated.View
           style={[
             styles.section,
@@ -156,9 +155,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         >
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Tags ✨</Text>
+            <Text style={styles.sectionTitle}>Today's Tags</Text>
             <TouchableOpacity onPress={handleShuffleTags}>
-              <Text style={styles.shuffleButton}>🔄 Shuffle</Text>
+              <Text style={styles.shuffleButton}>Shuffle</Text>
             </TouchableOpacity>
           </View>
 
@@ -182,7 +181,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </Card>
         </Animated.View>
 
-        {/* Exploration Modes */}
         <Animated.View
           style={[
             styles.section,
@@ -191,10 +189,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.sectionTitle}>Choose Your Journey 🚀</Text>
+          <Text style={styles.sectionTitle}>Choose Your Journey</Text>
 
           <View style={styles.modesGrid}>
-            {/* Quick Spark */}
             <TouchableOpacity
               style={styles.modeCard}
               onPress={() => handleModePress(1)}
@@ -212,7 +209,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Deep Dive */}
             <TouchableOpacity
               style={styles.modeCard}
               onPress={() => handleModePress(2)}
@@ -232,7 +228,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Thread */}
             <TouchableOpacity
               style={styles.modeCard}
               onPress={() => handleModePress(3)}
@@ -252,7 +247,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </Animated.View>
 
-        {/* Recent Sparks */}
         {recentSparks.length > 0 && (
           <Animated.View
             style={[
@@ -263,9 +257,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ]}
           >
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Sparks 💫</Text>
+              <Text style={styles.sectionTitle}>Recent Sparks</Text>
               <TouchableOpacity onPress={() => navigation.navigate("History")}>
-                <Text style={styles.viewAllButton}>View All →</Text>
+                <Text style={styles.viewAllButton}>View All</Text>
               </TouchableOpacity>
             </View>
 
@@ -282,7 +276,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </Animated.View>
         )}
 
-        {/* Bottom Spacing */}
         <View style={{ height: SPACING.xxxl }} />
       </ScrollView>
     </SafeAreaView>

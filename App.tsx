@@ -3,19 +3,24 @@ import "react-native-get-random-values";
 import React, { useEffect } from "react";
 import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import AppNavigator from "../app/src/navigation/AppNavigation";
-import { COLORS } from "../app/src/constants/colors";
+import AppNavigator from "@/navigation/AppNavigation";
+import { COLORS } from "@/constants/colors";
+import notificationService from "@/services/notifications/notificationService";
 
-// Import stores to initialize
-import { useSettingsStore } from "../app/src/stores/settingsStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export default function App() {
   const { settings, loadSettings } = useSettingsStore();
 
   useEffect(() => {
-    // Load settings on app start
-    loadSettings();
+    initializeApp();
   }, []);
+
+  const initializeApp = async () => {
+    await loadSettings();
+    await notificationService.initialize();
+    await notificationService.scheduleSparkReminder();
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -6,6 +6,7 @@ import { Tag } from "@type/tag.types";
 import { ConceptCluster } from "@type/thread.types";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
+import notificationService from "@/services/notifications/notificationService";
 
 interface SparkState {
   currentSpark: Spark | null;
@@ -30,8 +31,6 @@ interface SparkState {
     chaos?: number
   ) => Promise<void>;
   generateThreadSpark: (tags: Tag[], chaos?: number) => Promise<void>;
-
-  // NEW: Thread Spark dari Cluster
   generateThreadSparkFromCluster: (
     clusterId: string,
     chaos?: number
@@ -57,12 +56,11 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     set({ isGenerating: true, error: null });
     try {
       const spark = await sparkGenerator.generateQuickSpark(tags, chaos);
-
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
-
       set({ currentSpark: spark });
-
       await get().loadRecentSparks();
+
+      await notificationService.cancelScheduledReminder();
     } catch (error: any) {
       set({ error: error.message });
       console.error("[SparkStore] Generate quick spark failed:", error);
@@ -75,12 +73,11 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     set({ isGenerating: true, error: null });
     try {
       const spark = await sparkGenerator.generateDeepDive(tags, layers, chaos);
-
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
-
       set({ currentSpark: spark });
-
       await get().loadRecentSparks();
+
+      await notificationService.cancelScheduledReminder();
     } catch (error: any) {
       set({ error: error.message });
       console.error("[SparkStore] Generate deep dive failed:", error);
@@ -94,7 +91,6 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     try {
       const { useThreadStore } = await import("./threadStore");
       const { clusters } = useThreadStore.getState();
-
       const recentSparks = await sparkGenerator.getRecentSparks(10);
 
       const spark = await sparkGenerator.generateThreadSpark(
@@ -105,13 +101,13 @@ export const useSparkStore = create<SparkState>((set, get) => ({
       );
 
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
-
       set({ currentSpark: spark });
-
       await get().loadRecentSparks();
 
       const threadStore = useThreadStore.getState();
       await threadStore.refreshGraph();
+
+      await notificationService.cancelScheduledReminder();
     } catch (error: any) {
       set({ error: error.message });
       console.error("[SparkStore] Generate thread spark failed:", error);
@@ -120,7 +116,6 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     }
   },
 
-  // NEW: Generate Thread Spark dari Cluster Spesifik
   generateThreadSparkFromCluster: async (clusterId: string, chaos = 0.5) => {
     set({ isGenerating: true, error: null });
     try {
@@ -129,18 +124,16 @@ export const useSparkStore = create<SparkState>((set, get) => ({
         chaos
       );
 
-      // Process concepts dari spark baru
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
-
       set({ currentSpark: spark });
-
       await get().loadRecentSparks();
 
-      // Refresh graph untuk update clustering
       const { useThreadStore } = await import("./threadStore");
       const threadStore = useThreadStore.getState();
       await threadStore.refreshGraph();
       await threadStore.detectClusters();
+
+      await notificationService.cancelScheduledReminder();
     } catch (error: any) {
       set({ error: error.message });
       console.error(
