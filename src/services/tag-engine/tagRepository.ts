@@ -1,6 +1,6 @@
 // src/services/tag-engine/tagRepository.ts
 
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import {
   Tag,
   CreateTagInput,

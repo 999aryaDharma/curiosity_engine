@@ -161,6 +161,28 @@ INSERT OR IGNORE INTO metadata (key, value, updated_at)
 VALUES ('last_migration', 'initial', strftime('%s', 'now') * 1000);
 
 -- ============================================
+-- DEEP DIVE SESSIONS TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS deepdive_sessions (
+  id TEXT PRIMARY KEY,
+  seed_spark_id TEXT NOT NULL,
+  seed_spark_text TEXT NOT NULL,
+  layers TEXT NOT NULL,
+  synthesis TEXT,
+  current_layer INTEGER DEFAULT 0,
+  max_layers INTEGER DEFAULT 4,
+  is_complete INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  last_updated INTEGER NOT NULL,
+  FOREIGN KEY (seed_spark_id) REFERENCES sparks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_deepdive_seed ON deepdive_sessions(seed_spark_id);
+CREATE INDEX IF NOT EXISTS idx_deepdive_updated ON deepdive_sessions(last_updated DESC);
+CREATE INDEX IF NOT EXISTS idx_deepdive_complete ON deepdive_sessions(is_complete);
+
+-- ============================================
 -- VIEWS FOR COMMON QUERIES
 -- ============================================
 

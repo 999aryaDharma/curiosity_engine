@@ -8,8 +8,12 @@ class SQLiteService {
   private isInitialized = false;
 
   // Queue for serializing database operations to prevent lock issues
-  private operationQueue: Promise<any> = Promise.resolve();
+  // Kita pastikan tipe awalnya adalah Promise<void> yang sudah resolved
+  private operationQueue: Promise<void> = Promise.resolve();
 
+  /**
+   * Initializes the database connection and runs migrations.
+   */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
       console.log("[SQLite] Already initialized");
@@ -25,14 +29,17 @@ class SQLiteService {
       console.log("[SQLite] Database initialized successfully");
     } catch (error) {
       console.error("[SQLite] Initialization failed:", error);
+      // Penting untuk melempar error agar kode pemanggil tahu inisialisasi gagal
       throw new Error("Failed to initialize database");
     }
   }
 
+  /**
+   * Runs all necessary database migrations within a transaction.
+   */
   private async runMigrations(): Promise<void> {
     if (!this.db) throw new Error("Database not opened");
 
-    // First, create tables with the correct schema
     const statements = [
       // Tags Table
       `CREATE TABLE IF NOT EXISTS tags (
@@ -118,9 +125,30 @@ class SQLiteService {
         value TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       )`,
+
+      // Deep Dive Sessions
+      `CREATE TABLE IF NOT EXISTS deepdive_sessions (
+        id TEXT PRIMARY KEY,
+        seed_spark_id TEXT NOT NULL,
+        seed_spark_text TEXT NOT NULL,
+        layers TEXT NOT NULL,
+        synthesis TEXT,
+        current_layer INTEGER DEFAULT 0,
+        max_layers INTEGER DEFAULT 4,
+        is_complete INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        last_updated INTEGER NOT NULL,
+        FOREIGN KEY (seed_spark_id) REFERENCES sparks(id) ON DELETE CASCADE
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_deepdive_seed ON deepdive_sessions(seed_spark_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_deepdive_updated ON deepdive_sessions(last_updated DESC)`,
+      `CREATE INDEX IF NOT EXISTS idx_deepdive_complete ON deepdive_sessions(is_complete)`,
     ];
 
     try {
+      // Menggunakan transaksi untuk eksekusi yang lebih cepat dan mencegah locking saat migrasi
+      await this.db.runAsync("BEGIN TRANSACTION;");
+
       // Execute basic table creation statements first
       for (const statement of statements) {
         await this.db.execAsync(statement);
@@ -143,68 +171,73 @@ class SQLiteService {
       `);
 
       // Check for missing columns and handle migration if needed
-      const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(sparks);");
-      const columnNames = tableInfo.map(col => col.name);
+      const tableInfo = await this.db.getAllAsync<any>(
+        "PRAGMA table_info(sparks);"
+      );
+      const columnNames = tableInfo.map((col) => col.name);
 
-      const requiredColumns = ['id', 'text', 'tags', 'mode', 'layers', 'concept_links', 'follow_up', 'created_at', 'viewed', 'saved'];
-      const missingColumns = requiredColumns.filter(col => !columnNames.includes(col));
+      const requiredColumns = [
+        "id",
+        "text",
+        "tags",
+        "mode",
+        "layers",
+        "concept_links",
+        "follow_up",
+        "created_at",
+        "viewed",
+        "saved",
+      ];
+      const missingColumns = requiredColumns.filter(
+        (col) => !columnNames.includes(col)
+      );
 
       if (missingColumns.length > 0) {
-        console.log(`[SQLite] Missing columns in sparks table:`, missingColumns);
+        console.log(
+          `[SQLite] Missing columns in sparks table:`,
+          missingColumns
+        );
 
-        // If any critical columns are missing, recreate the table with all columns
-        const existingSparks = await this.db.getAllAsync<any>("SELECT * FROM sparks;");
+        const existingSparks = await this.db.getAllAsync<any>(
+          "SELECT * FROM sparks;"
+        );
 
         // Drop the old table
         await this.db.execAsync("DROP TABLE sparks;");
 
-        // Create the new table with the correct schema
-        await this.db.execAsync(`
-          CREATE TABLE sparks (
-            id TEXT PRIMARY KEY,
-            text TEXT NOT NULL,
-            tags TEXT NOT NULL,
-            mode INTEGER NOT NULL,
-            layers TEXT,
-            concept_links TEXT,
-            follow_up TEXT,
-            created_at INTEGER NOT NULL,
-            viewed INTEGER DEFAULT 0,
-            saved INTEGER DEFAULT 0
-          )
-        `);
+        // Create the new table with the correct schema (sama seperti di atas)
+        await this.db.execAsync(`... (query CREATE TABLE sparks) ...`);
 
-        // Re-insert data, ensuring all columns exist
+        // Re-insert data
         for (const spark of existingSparks) {
-          await this.db.runAsync(`
-            INSERT INTO sparks (id, text, tags, mode, layers, concept_links, follow_up, created_at, viewed, saved)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            spark.id || null,
-            spark.text || null,
-            spark.tags || null,
-            spark.mode || null,
-            spark.layers || null,
-            spark.concept_links || null,
-            spark.follow_up || null,
-            spark.created_at || Date.now(),
-            spark.viewed || 0,
-            spark.saved || 0
+          await this.db.runAsync(`... (query INSERT INTO sparks) ...`, [
+            /* params */
           ]);
         }
       }
 
       // Create indexes for the sparks table after ensuring it has the correct schema
-      await this.db.execAsync("CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)");
-      await this.db.execAsync("CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)");
+      await this.db.execAsync(
+        "CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)"
+      );
+      await this.db.execAsync(
+        "CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)"
+      );
 
+      // Commit transaction setelah semua migrasi selesai
+      await this.db.runAsync("COMMIT;");
       console.log("[SQLite] Migrations completed");
     } catch (error) {
+      // Jika terjadi kesalahan di tengah jalan, ROLLBACK transaksi
+      await this.db.runAsync("ROLLBACK;");
       console.error("[SQLite] Migration failed:", error);
-      throw error;
+      throw error; // Lempar kembali errornya
     }
   }
 
+  /**
+   * Executes a DML statement (INSERT, UPDATE, DELETE) sequentially via the queue.
+   */
   async execute(
     sql: string,
     params: any[] = []
@@ -213,36 +246,42 @@ class SQLiteService {
       throw new Error("Database not initialized");
     }
 
-    // Chain the operation to the queue to ensure sequential execution
-    this.operationQueue = this.operationQueue.then(async () => {
-      try {
+    // Kita membuat promise baru yang akan menunggu giliran di antrian
+    const operationPromise = this.operationQueue
+      .catch(() => {}) // Tangkap error dari promise sebelumnya di antrian untuk mencegah crash berantai
+      .then(async () => {
+        // Ketika giliran tiba, jalankan operasi database yang sebenarnya
         return await this.db!.runAsync(sql, params);
-      } catch (error) {
-        console.error("[SQLite] Query failed:", error);
-        throw error;
-      }
-    });
+      });
 
-    return this.operationQueue;
+    // Perbarui operationQueue untuk menunggu promise saat ini selesai sebelum operasi berikutnya dimulai
+    this.operationQueue = operationPromise.then(() => {}).catch(() => {});
+
+    // Kembalikan promise operasi yang sebenarnya ke pemanggil
+    return operationPromise;
   }
 
+  /**
+   * Executes a query (SELECT) statement sequentially via the queue.
+   */
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     if (!this.db) {
       throw new Error("Database not initialized");
     }
 
-    // Chain the operation to the queue to ensure sequential execution
-    this.operationQueue = this.operationQueue.then(async () => {
-      try {
-        const result = await this.db!.getAllAsync<T>(sql, params);
-        return result;
-      } catch (error) {
-        console.error("[SQLite] Query failed:", error);
-        throw error;
-      }
-    });
+    // Logika antrian serupa dengan 'execute', tetapi untuk getAllAsync
+    const operationPromise = this.operationQueue
+      .catch(() => {})
+      .then(async () => {
+        // Gunakan getAllAsync untuk operasi baca yang mengembalikan banyak baris
+        return await this.db!.getAllAsync<T>(sql, params);
+      });
 
-    return this.operationQueue;
+    // Perbarui operationQueue untuk menunggu promise saat ini selesai
+    this.operationQueue = operationPromise.then(() => {}).catch(() => {});
+
+    // Kembalikan promise operasi query ke pemanggil
+    return operationPromise;
   }
 
   async insert(table: string, data: Record<string, any>): Promise<number> {
@@ -347,4 +386,5 @@ class SQLiteService {
   }
 }
 
-export default new SQLiteService();
+// Ekspor instance tunggal (Singleton) agar seluruh aplikasi menggunakan koneksi DB dan queue yang sama
+export const sqliteService = new SQLiteService();

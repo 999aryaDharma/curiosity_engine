@@ -5,7 +5,7 @@ import {
   ConceptLink,
   ConceptExtractionResult,
 } from "@type/thread.types";
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import llmClient from "@services/llm/llmClient";
 import promptBuilder from "@services/llm/promptBuilder";
 import responseValidator from "@services/llm/responseValidator";

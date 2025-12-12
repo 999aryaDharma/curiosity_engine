@@ -160,10 +160,14 @@ class ResponseValidator {
     if (!Array.isArray(parsed.conceptReinforcement)) {
       errors.push('Missing or invalid "conceptReinforcement" field');
     } else if (
-      parsed.conceptReinforcement.length < 2 ||
-      parsed.conceptReinforcement.length > 5
+      parsed.conceptReinforcement.length < 1 ||
+      parsed.conceptReinforcement.length > 10
     ) {
-      errors.push("conceptReinforcement must have 2-5 items");
+      // Allow more flexible range, and handle the case where AI might generate too many or too few
+      if (parsed.conceptReinforcement.length === 0) {
+        errors.push("conceptReinforcement must have at least 1 item");
+      }
+      // If there are too many, we'll just take the first 5
     } else if (
       !parsed.conceptReinforcement.every((c: any) => typeof c === "string")
     ) {
@@ -174,10 +178,24 @@ class ResponseValidator {
       return { isValid: false, errors };
     }
 
+    // Ensure conceptReinforcement has 2-5 items as originally required
+    let finalConceptReinforcement = parsed.conceptReinforcement;
+
+    if (finalConceptReinforcement.length < 2) {
+      // Pad with default values if too few
+      const needed = 2 - finalConceptReinforcement.length;
+      for (let i = 0; i < needed; i++) {
+        finalConceptReinforcement.push(`concept-${Date.now()}-${i}`);
+      }
+    } else if (finalConceptReinforcement.length > 5) {
+      // Take only first 5 if too many
+      finalConceptReinforcement = finalConceptReinforcement.slice(0, 5);
+    }
+
     const data: ThreadSparkResponse = {
       clusterSummary: parsed.clusterSummary,
       newSpark: parsed.newSpark,
-      conceptReinforcement: parsed.conceptReinforcement,
+      conceptReinforcement: finalConceptReinforcement,
     };
 
     return { isValid: true, errors: [], data };
@@ -287,6 +305,83 @@ class ResponseValidator {
     };
 
     return { isValid: true, errors: [], data };
+  }
+
+  validateDeepDiveLayer(response: string): SparkValidationResult {
+    const errors: string[] = [];
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(response);
+    } catch (e) {
+      return { isValid: false, errors: ["Invalid JSON format"] };
+    }
+
+    if (!parsed.explanation || typeof parsed.explanation !== "string") {
+      errors.push('Missing or invalid "explanation" field');
+    } else if (parsed.explanation.length < 100) {
+      errors.push("Explanation too short (min 100 chars)");
+    }
+
+    if (!Array.isArray(parsed.questions)) {
+      errors.push('Missing or invalid "questions" field');
+    } else if (parsed.questions.length < 1 || parsed.questions.length > 2) {
+      errors.push("Must have 1-2 questions");
+    } else if (!parsed.questions.every((q: any) => typeof q === "string")) {
+      errors.push("All questions must be strings");
+    }
+
+    if (parsed.analogy && typeof parsed.analogy !== "string") {
+      errors.push("Analogy must be string if provided");
+    }
+
+    if (!parsed.observation || typeof parsed.observation !== "string") {
+      errors.push('Missing or invalid "observation" field');
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return { isValid: true, errors: [], data: parsed };
+  }
+
+  validateDeepDiveSynthesis(response: string): SparkValidationResult {
+    const errors: string[] = [];
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(response);
+    } catch (e) {
+      return { isValid: false, errors: ["Invalid JSON format"] };
+    }
+
+    if (!parsed.summary || typeof parsed.summary !== "string") {
+      errors.push('Missing or invalid "summary" field');
+    }
+
+    if (!parsed.bigIdea || typeof parsed.bigIdea !== "string") {
+      errors.push('Missing or invalid "bigIdea" field');
+    }
+
+    if (!Array.isArray(parsed.nextSteps)) {
+      errors.push('Missing or invalid "nextSteps" field');
+    } else if (parsed.nextSteps.length < 2 || parsed.nextSteps.length > 4) {
+      errors.push("Must have 2-4 next steps");
+    }
+
+    if (
+      parsed.clusterConnection &&
+      typeof parsed.clusterConnection !== "string"
+    ) {
+      errors.push("clusterConnection must be string if provided");
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return { isValid: true, errors: [], data: parsed };
   }
 }
 

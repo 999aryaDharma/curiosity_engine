@@ -3,7 +3,7 @@
 import { Tag, DailyTagSelection } from "@type/tag.types";
 import tagRepository from "./tagRepository";
 import adaptiveRandomizer from "./adaptiveRandomizer";
-import sqliteService from "@services/storage/sqliteService";
+import { sqliteService } from "../storage/sqliteService";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 import { mmkvService } from "@services/storage/mmkvService";
 import { v4 as uuidv4 } from "uuid";

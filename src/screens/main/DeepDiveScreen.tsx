@@ -1,4 +1,4 @@
-// src/screens/main/DeepDiveScreen.tsx
+// src/screens/main/DeepDiveScreen.tsx - COMPLETE REWRITE
 
 import React, { useState, useEffect } from "react";
 import {
@@ -12,92 +12,186 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
 import { useSettingsStore } from "@stores/settingsStore";
-import { SparkLayer } from "@type/spark.types";
-import Button from "@components/common/Button";
+import { Spark } from "@type/spark.types";
+import { DeepDiveSession, DeepDiveLayer } from "@type/deepdive.types";
+import deepDiveService from "@/services/deepdive/deepDiveService";
 import Card from "@components/common/Card";
+import Button from "@components/common/Button";
 import LoadingSpinner from "@components/common/LoadingSpinner";
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
 
 interface DeepDiveScreenProps {
   navigation: any;
+  route: any;
 }
+
+type ScreenState = "seed_selection" | "seed_view" | "layer_view" | "synthesis";
 
 export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
   navigation,
+  route,
 }) => {
-  const { dailyTags } = useTagStore();
-  const { currentSpark, isGenerating, generateWithMode, clearCurrentSpark } = useSparkStore();
+  const { recentSparks, loadRecentSparks } = useSparkStore();
   const { settings } = useSettingsStore();
 
-  const [currentLayerIndex, setCurrentLayerIndex] = useState(0);
-  const [selectedBranches, setSelectedBranches] = useState<
-    Record<number, string>
-  >({});
+  const [screenState, setScreenState] = useState<ScreenState>("seed_selection");
+  const [selectedSeed, setSelectedSeed] = useState<Spark | null>(null);
+  const [currentSession, setCurrentSession] = useState<DeepDiveSession | null>(
+    null
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // If there's no current spark or it's not a Deep Dive, load daily tags and prepare for generation
-    if (!currentSpark || currentSpark.mode !== 2) {
-      if (currentSpark && currentSpark.mode !== 2) {
-        clearCurrentSpark(); // Clear non-DeepDive sparks
-      }
-      // Load daily tags for potential generation
-      useTagStore.getState().loadDailyTags();
-    } else if (currentSpark?.layers) {
-      // Animate if we have a proper deep dive
-      animateEntrance();
-    }
-  }, [currentSpark, currentLayerIndex, clearCurrentSpark]);
+    loadRecentSparks(20);
 
-  const animateEntrance = () => {
-    fadeAnim.setValue(0);
-    Animated.spring(fadeAnim, {
+    // Jika ada sparkText dari route params, langsung buat session
+    if (route.params?.sparkText) {
+      handleCreateSessionFromText(route.params.sparkText);
+    }
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
       toValue: 1,
-      speed: 12,
-      bounciness: 6,
+      duration: 600,
       useNativeDriver: true,
     }).start();
+  }, [screenState]);
+
+  const handleCreateSessionFromText = async (text: string) => {
+    setIsGenerating(true);
+    try {
+      const session = await deepDiveService.createSession(
+        "custom",
+        text,
+        settings.maxDeepDiveLayers
+      );
+      setCurrentSession(session);
+      setScreenState("seed_view");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handleGenerate = async () => {
-    if (dailyTags.length === 0) {
-      Alert.alert("No Tags", "Please select tags first");
+  const handleSelectSeed = async (spark: Spark) => {
+    setSelectedSeed(spark);
+    setIsGenerating(true);
+
+    try {
+      const session = await deepDiveService.createSession(
+        spark.id,
+        spark.text,
+        settings.maxDeepDiveLayers
+      );
+      setCurrentSession(session);
+      setScreenState("seed_view");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleOpenLayer1 = async () => {
+    if (!currentSession) return;
+
+    setIsGenerating(true);
+    try {
+      await deepDiveService.generateNextLayer(
+        currentSession.id,
+        settings.chaosLevel
+      );
+      const updated = await deepDiveService.getSession(currentSession.id);
+      setCurrentSession(updated);
+      setScreenState("layer_view");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGoDeeper = async () => {
+    if (!currentSession) return;
+
+    if (currentSession.currentLayer >= currentSession.maxLayers) {
+      handleGenerateSynthesis();
       return;
     }
 
+    setIsGenerating(true);
     try {
-      await generateWithMode(2, dailyTags, {
-        layers: settings.maxDeepDiveLayers,
-      });
-      setCurrentLayerIndex(0);
-      setSelectedBranches({});
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to generate deep dive");
+      await deepDiveService.generateNextLayer(
+        currentSession.id,
+        settings.chaosLevel
+      );
+      const updated = await deepDiveService.getSession(currentSession.id);
+      setCurrentSession(updated);
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const handleBranchSelect = (branchId: string) => {
-    setSelectedBranches({
-      ...selectedBranches,
-      [currentLayerIndex]: branchId,
-    });
+  const handleGenerateSynthesis = async () => {
+    if (!currentSession) return;
 
-    // Move to next layer if available
-    if (
-      currentSpark?.layers &&
-      currentLayerIndex < currentSpark.layers.length - 1
-    ) {
-      setTimeout(() => {
-        setCurrentLayerIndex(currentLayerIndex + 1);
-      }, 300);
+    setIsGenerating(true);
+    try {
+      await deepDiveService.generateSynthesis(currentSession.id);
+      const updated = await deepDiveService.getSession(currentSession.id);
+      setCurrentSession(updated);
+      setScreenState("synthesis");
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const handleGoToLayer = (index: number) => {
-    setCurrentLayerIndex(index);
+  const handleBranchIdea = async (
+    layerNumber: number,
+    questionIndex: number
+  ) => {
+    if (!currentSession) return;
+
+    Alert.alert(
+      "Branch This Idea",
+      "Create a new Deep Dive from this question?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Branch",
+          onPress: async () => {
+            try {
+              const newSession = await deepDiveService.branchFromLayer(
+                currentSession.id,
+                layerNumber,
+                questionIndex
+              );
+              setCurrentSession(newSession);
+              setScreenState("seed_view");
+            } catch (error: any) {
+              Alert.alert("Error", error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBackToSelection = () => {
+    setCurrentSession(null);
+    setSelectedSeed(null);
+    setScreenState("seed_selection");
+    fadeAnim.setValue(0);
   };
 
   if (isGenerating) {
@@ -107,14 +201,18 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
           <LoadingSpinner
             variant="gradient"
             size="large"
-            message="Creating your deep dive... 🌊"
+            message={
+              screenState === "seed_view"
+                ? "Preparing Deep Dive..."
+                : screenState === "synthesis"
+                ? "Creating synthesis..."
+                : "Diving deeper... 🌊"
+            }
           />
         </View>
       </SafeAreaView>
     );
   }
-
-  const currentLayer = currentSpark?.layers?.[currentLayerIndex];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -122,7 +220,11 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() =>
+              screenState === "seed_selection"
+                ? navigation.goBack()
+                : handleBackToSelection()
+            }
             style={styles.backButton}
           >
             <Text style={styles.backIcon}>←</Text>
@@ -135,198 +237,36 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {!currentSpark || currentSpark.mode !== 2 ? (
-            // Initial State
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🌊🧭✨</Text>
-              <Text style={styles.emptyTitle}>Dive Deep</Text>
-              <Text style={styles.emptyDescription}>
-                Explore {settings.maxDeepDiveLayers} layers of curiosity with
-                branching paths
-              </Text>
-
-              <Card variant="elevated" style={styles.infoCard}>
-                <Text style={styles.infoTitle}>🎯 How it works:</Text>
-                <Text style={styles.infoItem}>
-                  • Start with a spark question
-                </Text>
-                <Text style={styles.infoItem}>
-                  • Choose branch A or B to explore
-                </Text>
-                <Text style={styles.infoItem}>
-                  • Dive {settings.maxDeepDiveLayers} layers deep
-                </Text>
-                <Text style={styles.infoItem}>• Build your unique path</Text>
-              </Card>
-
-              <Button
-                title="Start Deep Dive 🌊"
-                onPress={handleGenerate}
-                variant="gradient"
-                size="large"
-                fullWidth
+          <Animated.View style={{ opacity: fadeAnim }}>
+            {screenState === "seed_selection" && (
+              <SeedSelectionView
+                recentSparks={recentSparks}
+                onSelectSeed={handleSelectSeed}
               />
-            </View>
-          ) : (
-            <>
-              {/* Progress Bar - only show if current spark is a Deep Dive */}
-              {currentSpark?.mode === 2 && currentSpark.layers && (
-                <View style={styles.progressSection}>
-                  <Text style={styles.progressLabel}>
-                    Layer {currentLayerIndex + 1} of{" "}
-                    {currentSpark.layers?.length || 0}
-                  </Text>
-                  <View style={styles.progressBar}>
-                    {currentSpark.layers?.map((_, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() =>
-                          index <= currentLayerIndex && handleGoToLayer(index)
-                        }
-                        style={
-                          index <= currentLayerIndex
-                            ? [styles.progressDot, styles.progressDotActive]
-                            : styles.progressDot
-                        }
-                      >
-                        {selectedBranches[index] && (
-                          <Text style={styles.progressDotCheck}>✓</Text>
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
+            )}
 
-              {/* Current Layer */}
-              {currentLayer && (
-                <Animated.View style={{ opacity: fadeAnim }}>
-                  <Card variant="elevated" style={styles.layerCard}>
-                    <LinearGradient
-                      colors={
-                        COLORS.gradients.twilight as [
-                          string,
-                          string,
-                          ...string[]
-                        ]
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.layerBadge}
-                    >
-                      <Text style={styles.layerBadgeText}>
-                        Layer {currentLayer.layer}
-                      </Text>
-                    </LinearGradient>
+            {screenState === "seed_view" && currentSession && (
+              <SeedView
+                session={currentSession}
+                onOpenLayer1={handleOpenLayer1}
+              />
+            )}
 
-                    <Text style={styles.layerSpark}>{currentLayer.spark}</Text>
+            {screenState === "layer_view" && currentSession && (
+              <LayerView
+                session={currentSession}
+                onGoDeeper={handleGoDeeper}
+                onBranchIdea={handleBranchIdea}
+              />
+            )}
 
-                    {/* Branches */}
-                    <View style={styles.branchesContainer}>
-                      <Text style={styles.branchesTitle}>
-                        Choose your path:
-                      </Text>
-
-                      {currentLayer.branches.map((branch, index) => {
-                        const isSelected =
-                          selectedBranches[currentLayerIndex] === branch.id;
-                        const branchLetter = String.fromCharCode(65 + index); // A, B, C...
-
-                        return (
-                          <TouchableOpacity
-                            key={branch.id}
-                            onPress={() =>
-                              !selectedBranches[currentLayerIndex] &&
-                              handleBranchSelect(branch.id)
-                            }
-                            activeOpacity={0.8}
-                            disabled={
-                              selectedBranches[currentLayerIndex] !==
-                                undefined && !isSelected
-                            }
-                          >
-                            <Card
-                              variant={isSelected ? "gradient" : "outlined"}
-                              gradientColors={COLORS.gradients.ocean}
-                              style={StyleSheet.flatten([
-                                styles.branchCard,
-                                selectedBranches[currentLayerIndex] &&
-                                !isSelected
-                                  ? styles.branchCardDisabled
-                                  : null,
-                              ])}
-                            >
-                              <Text
-                                style={
-                                  isSelected
-                                    ? [
-                                        styles.branchLetter,
-                                        styles.branchLetterSelected,
-                                      ]
-                                    : styles.branchLetter
-                                }
-                              >
-                                {branchLetter}
-                              </Text>
-                              <Text
-                                style={
-                                  isSelected
-                                    ? [
-                                        styles.branchText,
-                                        styles.branchTextSelected,
-                                      ]
-                                    : styles.branchText
-                                }
-                              >
-                                {branch.text}
-                              </Text>
-                            </Card>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </Card>
-                </Animated.View>
-              )}
-
-              {/* Navigation Buttons */}
-              <View style={styles.navigation}>
-                {currentLayerIndex > 0 && (
-                  <Button
-                    title="← Previous"
-                    onPress={() => setCurrentLayerIndex(currentLayerIndex - 1)}
-                    variant="outline"
-                    size="medium"
-                    style={styles.navButton}
-                  />
-                )}
-
-                {currentLayerIndex < (currentSpark.layers?.length || 0) - 1 &&
-                  selectedBranches[currentLayerIndex] && (
-                    <Button
-                      title="Next →"
-                      onPress={() =>
-                        setCurrentLayerIndex(currentLayerIndex + 1)
-                      }
-                      variant="primary"
-                      size="medium"
-                      style={styles.navButton}
-                    />
-                  )}
-
-                {currentLayerIndex ===
-                  (currentSpark.layers?.length || 0) - 1 && (
-                  <Button
-                    title="New Dive 🌊"
-                    onPress={handleGenerate}
-                    variant="gradient"
-                    size="medium"
-                    fullWidth
-                  />
-                )}
-              </View>
-            </>
-          )}
+            {screenState === "synthesis" && currentSession?.synthesis && (
+              <SynthesisView
+                synthesis={currentSession.synthesis}
+                onBackToSelection={handleBackToSelection}
+              />
+            )}
+          </Animated.View>
 
           <View style={{ height: SPACING.xxxl }} />
         </ScrollView>
@@ -334,6 +274,250 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
     </SafeAreaView>
   );
 };
+
+// SUB-COMPONENTS
+
+const SeedSelectionView: React.FC<{
+  recentSparks: Spark[];
+  onSelectSeed: (spark: Spark) => void;
+}> = ({ recentSparks, onSelectSeed }) => (
+  <View>
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyEmoji}>🔍🌊✨</Text>
+      <Text style={styles.emptyTitle}>Choose a Spark to Explore</Text>
+      <Text style={styles.emptyDescription}>
+        Select a spark from your history to dive deep into its layers
+      </Text>
+    </View>
+
+    <Text style={styles.sectionTitle}>Recent Sparks</Text>
+    {recentSparks.length === 0 ? (
+      <Card variant="outlined" style={styles.emptyCard}>
+        <Text style={styles.emptyText}>
+          No sparks yet. Generate a Quick Spark first!
+        </Text>
+      </Card>
+    ) : (
+      recentSparks.slice(0, 10).map((spark) => (
+        <TouchableOpacity key={spark.id} onPress={() => onSelectSeed(spark)}>
+          <Card variant="outlined" style={styles.sparkCard}>
+            <Text style={styles.sparkText} numberOfLines={3}>
+              {spark.text}
+            </Text>
+            <View style={styles.sparkMeta}>
+              <Text style={styles.sparkMode}>
+                {spark.mode === 1
+                  ? "⚡ Quick"
+                  : spark.mode === 2
+                  ? "🌊 Deep"
+                  : "🧵 Thread"}
+              </Text>
+              <Text style={styles.sparkDate}>
+                {new Date(spark.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </Card>
+        </TouchableOpacity>
+      ))
+    )}
+  </View>
+);
+
+const SeedView: React.FC<{
+  session: DeepDiveSession;
+  onOpenLayer1: () => void;
+}> = ({ session, onOpenLayer1 }) => (
+  <View>
+    <Card variant="gradient" style={styles.seedCard}>
+      <Text style={styles.seedLabel}>Seed Spark</Text>
+      <Text style={styles.seedText}>{session.seedSparkText}</Text>
+
+      <View style={styles.seedMeta}>
+        <View style={styles.seedMetaItem}>
+          <Text style={styles.seedMetaLabel}>Max Layers</Text>
+          <Text style={styles.seedMetaValue}>{session.maxLayers}</Text>
+        </View>
+        <View style={styles.seedMetaItem}>
+          <Text style={styles.seedMetaLabel}>Progress</Text>
+          <Text style={styles.seedMetaValue}>
+            {session.currentLayer}/{session.maxLayers}
+          </Text>
+        </View>
+      </View>
+    </Card>
+
+    <Card variant="outlined" style={styles.infoCard}>
+      <Text style={styles.infoTitle}>🎯 What to Expect:</Text>
+      <Text style={styles.infoItem}>
+        • Layer 1: Core explanation + questions
+      </Text>
+      <Text style={styles.infoItem}>
+        • Layer 2: Mechanisms + contradictions
+      </Text>
+      <Text style={styles.infoItem}>• Layer 3: Real scenarios + parallels</Text>
+      <Text style={styles.infoItem}>• Layer 4+: Abstract insights</Text>
+    </Card>
+
+    <Button
+      title="Open Layer 1 🌊"
+      onPress={onOpenLayer1}
+      variant="gradient"
+      size="large"
+      fullWidth
+    />
+  </View>
+);
+
+const LayerView: React.FC<{
+  session: DeepDiveSession;
+  onGoDeeper: () => void;
+  onBranchIdea: (layer: number, questionIndex: number) => void;
+}> = ({ session, onGoDeeper, onBranchIdea }) => {
+  const currentLayer = session.layers[session.layers.length - 1];
+  const canGoDeeper = session.currentLayer < session.maxLayers;
+
+  return (
+    <View>
+      {/* Progress */}
+      <View style={styles.progressSection}>
+        <Text style={styles.progressLabel}>
+          Layer {session.currentLayer} of {session.maxLayers}
+        </Text>
+        <View style={styles.progressBar}>
+          {Array.from({ length: session.maxLayers }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.progressDot,
+                i < session.currentLayer && styles.progressDotActive,
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Current Layer */}
+      <Card variant="elevated" style={styles.layerCard}>
+        <LinearGradient
+          colors={COLORS.gradients.twilight as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.layerBadge}
+        >
+          <Text style={styles.layerBadgeText}>Layer {currentLayer.layer}</Text>
+        </LinearGradient>
+
+        {/* Explanation */}
+        <Text style={styles.layerSectionTitle}>💡 Explanation</Text>
+        <Text style={styles.layerExplanation}>{currentLayer.explanation}</Text>
+
+        {/* Questions */}
+        <Text style={styles.layerSectionTitle}>❓ Questions</Text>
+        {currentLayer.questions.map((q, i) => (
+          <View key={i} style={styles.questionContainer}>
+            <Text style={styles.questionText}>{q}</Text>
+            <TouchableOpacity
+              style={styles.branchButton}
+              onPress={() => onBranchIdea(currentLayer.layer, i)}
+            >
+              <Text style={styles.branchButtonText}>Branch →</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {/* Analogy */}
+        {currentLayer.analogy && (
+          <>
+            <Text style={styles.layerSectionTitle}>🎨 Analogy</Text>
+            <Text style={styles.layerAnalogy}>{currentLayer.analogy}</Text>
+          </>
+        )}
+
+        {/* Observation */}
+        {currentLayer.observation && (
+          <>
+            <Text style={styles.layerSectionTitle}>👁️ Observation</Text>
+            <Text style={styles.layerObservation}>
+              {currentLayer.observation}
+            </Text>
+          </>
+        )}
+      </Card>
+
+      {/* Navigation */}
+      <Button
+        title={canGoDeeper ? "Go Deeper 🌊" : "Generate Synthesis ✨"}
+        onPress={onGoDeeper}
+        variant="gradient"
+        size="large"
+        fullWidth
+        style={styles.actionButton}
+      />
+
+      {/* Previous Layers */}
+      {session.layers.length > 1 && (
+        <>
+          <Text style={styles.sectionTitle}>Previous Layers</Text>
+          {session.layers
+            .slice(0, -1)
+            .reverse()
+            .map((layer) => (
+              <Card
+                key={layer.layer}
+                variant="outlined"
+                style={styles.prevLayerCard}
+              >
+                <Text style={styles.prevLayerTitle}>Layer {layer.layer}</Text>
+                <Text style={styles.prevLayerExplanation} numberOfLines={2}>
+                  {layer.explanation}
+                </Text>
+              </Card>
+            ))}
+        </>
+      )}
+    </View>
+  );
+};
+
+const SynthesisView: React.FC<{
+  synthesis: any;
+  onBackToSelection: () => void;
+}> = ({ synthesis, onBackToSelection }) => (
+  <View>
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyEmoji}>🎯✨</Text>
+      <Text style={styles.emptyTitle}>Journey Complete</Text>
+    </View>
+
+    <Card variant="gradient" style={styles.synthesisCard}>
+      <Text style={styles.synthesisLabel}>Summary</Text>
+      <Text style={styles.synthesisText}>{synthesis.summary}</Text>
+    </Card>
+
+    <Card variant="elevated" style={styles.bigIdeaCard}>
+      <Text style={styles.bigIdeaLabel}>💡 The Big Idea</Text>
+      <Text style={styles.bigIdeaText}>{synthesis.bigIdea}</Text>
+    </Card>
+
+    <Card variant="outlined" style={styles.nextStepsCard}>
+      <Text style={styles.nextStepsTitle}>🚀 Where to Go Next</Text>
+      {synthesis.nextSteps.map((step: string, i: number) => (
+        <Text key={i} style={styles.nextStepItem}>
+          {i + 1}. {step}
+        </Text>
+      ))}
+    </Card>
+
+    <Button
+      title="Start New Deep Dive"
+      onPress={onBackToSelection}
+      variant="gradient"
+      size="large"
+      fullWidth
+      style={styles.actionButton}
+    />
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -376,14 +560,14 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: SPACING.xxxl,
+    paddingVertical: SPACING.xl,
   },
   emptyEmoji: {
-    fontSize: 80,
-    marginBottom: SPACING.lg,
+    fontSize: 60,
+    marginBottom: SPACING.md,
   },
   emptyTitle: {
-    fontSize: FONT_SIZES.xxxl,
+    fontSize: FONT_SIZES.xxl,
     fontWeight: "bold",
     color: COLORS.neutral.black,
     marginBottom: SPACING.sm,
@@ -392,12 +576,81 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.neutral.gray600,
     textAlign: "center",
-    marginBottom: SPACING.xl,
     paddingHorizontal: SPACING.lg,
   },
+  sectionTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "bold",
+    color: COLORS.neutral.black,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.md,
+  },
+  emptyCard: {
+    padding: SPACING.lg,
+  },
+  emptyText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray600,
+    textAlign: "center",
+  },
+  sparkCard: {
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  sparkText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.neutral.gray800,
+    marginBottom: SPACING.sm,
+  },
+  sparkMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sparkMode: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.primary.main,
+    fontWeight: "600",
+  },
+  sparkDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.gray500,
+  },
+  seedCard: {
+    marginBottom: SPACING.lg,
+  },
+  seedLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.white,
+    opacity: 0.9,
+    marginBottom: SPACING.sm,
+  },
+  seedText: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: "600",
+    color: COLORS.neutral.white,
+    lineHeight: FONT_SIZES.xl * 1.4,
+    marginBottom: SPACING.lg,
+  },
+  seedMeta: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  seedMetaItem: {
+    alignItems: "center",
+  },
+  seedMetaLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.white,
+    opacity: 0.8,
+  },
+  seedMetaValue: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: "bold",
+    color: COLORS.neutral.white,
+  },
   infoCard: {
-    width: "100%",
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   infoTitle: {
     fontSize: FONT_SIZES.md,
@@ -411,7 +664,7 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.xs,
   },
   progressSection: {
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   progressLabel: {
     fontSize: FONT_SIZES.sm,
@@ -426,21 +679,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   progressDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.neutral.gray200,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.neutral.gray300,
     marginHorizontal: SPACING.xs,
-    justifyContent: "center",
-    alignItems: "center",
   },
   progressDotActive: {
     backgroundColor: COLORS.primary.main,
-  },
-  progressDotCheck: {
-    color: COLORS.neutral.white,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: "bold",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   layerCard: {
     marginBottom: SPACING.lg,
@@ -450,64 +699,117 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: BORDER_RADIUS.full,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   layerBadgeText: {
     color: COLORS.neutral.white,
     fontSize: FONT_SIZES.xs,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  layerSpark: {
-    fontSize: FONT_SIZES.xl,
-    lineHeight: FONT_SIZES.xl * 1.4,
+  layerSectionTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "700",
     color: COLORS.neutral.black,
-    fontWeight: "500",
-    marginBottom: SPACING.lg,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
-  branchesContainer: {
-    marginTop: SPACING.md,
-  },
-  branchesTitle: {
+  layerExplanation: {
     fontSize: FONT_SIZES.md,
-    fontWeight: "600",
-    color: COLORS.neutral.gray600,
-    marginBottom: SPACING.md,
+    lineHeight: FONT_SIZES.md * 1.6,
+    color: COLORS.neutral.gray800,
   },
-  branchCard: {
-    marginBottom: SPACING.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
+  questionContainer: {
+    backgroundColor: COLORS.neutral.gray50,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
   },
-  branchCardDisabled: {
-    opacity: 0.4,
+  questionText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray800,
+    marginBottom: SPACING.sm,
   },
-  branchLetter: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+  branchButton: {
+    alignSelf: "flex-start",
+  },
+  branchButtonText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: "700",
     color: COLORS.primary.main,
-    marginRight: SPACING.md,
-    width: 32,
   },
-  branchLetterSelected: {
-    color: COLORS.neutral.white,
+  layerAnalogy: {
+    fontSize: FONT_SIZES.sm,
+    lineHeight: FONT_SIZES.sm * 1.5,
+    color: COLORS.neutral.gray700,
+    fontStyle: "italic",
   },
-  branchText: {
-    flex: 1,
-    fontSize: FONT_SIZES.md,
-    lineHeight: FONT_SIZES.md * 1.4,
+  layerObservation: {
+    fontSize: FONT_SIZES.sm,
+    lineHeight: FONT_SIZES.sm * 1.5,
     color: COLORS.neutral.gray700,
   },
-  branchTextSelected: {
+  actionButton: {
+    marginTop: SPACING.md,
+  },
+  prevLayerCard: {
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  prevLayerTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: "700",
+    color: COLORS.primary.main,
+    marginBottom: SPACING.xs,
+  },
+  prevLayerExplanation: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray600,
+  },
+  synthesisCard: {
+    marginBottom: SPACING.lg,
+  },
+  synthesisLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.white,
+    opacity: 0.9,
+    marginBottom: SPACING.sm,
+  },
+  synthesisText: {
+    fontSize: FONT_SIZES.md,
+    lineHeight: FONT_SIZES.md * 1.5,
     color: COLORS.neutral.white,
   },
-  navigation: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: SPACING.lg,
+  bigIdeaCard: {
+    marginBottom: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accent.yellow,
   },
-  navButton: {
-    flex: 1,
-    marginHorizontal: SPACING.xs,
+  bigIdeaLabel: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "700",
+    color: COLORS.neutral.black,
+    marginBottom: SPACING.sm,
+  },
+  bigIdeaText: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "600",
+    lineHeight: FONT_SIZES.lg * 1.4,
+    color: COLORS.neutral.gray800,
+  },
+  nextStepsCard: {
+    marginBottom: SPACING.lg,
+  },
+  nextStepsTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "700",
+    color: COLORS.neutral.black,
+    marginBottom: SPACING.md,
+  },
+  nextStepItem: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray700,
+    marginBottom: SPACING.sm,
+    lineHeight: FONT_SIZES.sm * 1.4,
   },
 });
 

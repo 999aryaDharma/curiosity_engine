@@ -15,7 +15,7 @@ import {
 } from "@type/spark.types";
 import { Tag } from "@type/tag.types";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import {
   ThreadPack,
   ThreadSpark,
@@ -82,7 +82,6 @@ class SparkGenerator {
       prompt: user,
       systemPrompt: system,
       temperature: 0.7 + chaos * 0.2,
-      maxTokens: 1000,
     });
     const duration = Date.now() - startTime;
 

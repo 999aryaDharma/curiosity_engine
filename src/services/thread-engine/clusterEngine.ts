@@ -6,7 +6,7 @@ import {
   ConceptLink,
   ClusterAnalysisResult,
 } from "@type/thread.types";
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import conceptGraphEngine from "./conceptGraph";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 import { v4 as uuidv4 } from "uuid";

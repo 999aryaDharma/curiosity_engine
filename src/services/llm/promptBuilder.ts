@@ -3,6 +3,7 @@
 import { Tag } from "@type/tag.types";
 import { Spark, SparkMode } from "@type/spark.types";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
+import { DeepDiveLayer } from "@/types/deepdive.types";
 
 class PromptBuilder {
   buildQuickSparkPrompt(
@@ -29,7 +30,8 @@ Output ONLY valid JSON with this exact structure:
 Rules:
 - spark must be under 280 characters
 - followUp should dig one layer deeper
-- conceptLinks should be 2-4 abstract concepts
+- conceptLinks MUST contain exactly 2-4 abstract concepts (no more, no less)
+- Each concept should be a single word or short phrase (2-3 words max)
 - Be creative and unexpected
 - Avoid clichés and obvious connections
 - ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
@@ -127,6 +129,8 @@ Output ONLY valid JSON with this exact structure:
 }
 
 Rules:
+- conceptReinforcement MUST contain exactly 2-4 concepts (no more, no less)
+- Each concept in conceptReinforcement should be a single word or short phrase (2-3 words max)
 - Reference concepts the user has already explored
 - Make it feel like a natural continuation of their journey
 - Spark should be under 280 characters
@@ -380,6 +384,123 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
   4. WILDCARD: Unexpected but related connection
   
   Make them feel like one cohesive exploration with 4 chapters.
+  
+  Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
+
+  buildDeepDiveLayerPrompt(
+    seedSparkText: string,
+    currentLayer: number,
+    previousLayers: DeepDiveLayer[],
+    chaos: number
+  ): { system: string; user: string } {
+    const system = `You are the Curiosity Engine's Deep Dive mode. You create progressive layers that deepen understanding of ONE spark.
+  
+  LAYER ${currentLayer} STRUCTURE:
+  {
+    "explanation": "Core explanation in Indonesian (1 paragraph, 150-200 words)",
+    "questions": ["Question 1 in Indonesian", "Question 2 in Indonesian"],
+    "analogy": "Illustrative analogy in Indonesian (optional)",
+    "observation": "Unique insight/observation path in Indonesian"
+  }
+  
+  PROGRESSION RULES:
+  - Layer 1: Surface explanation + obvious questions
+  - Layer 2: Mechanisms + contradictions
+  - Layer 3: Real-world scenarios + parallels
+  - Layer 4+: Abstract connections + "mind-bending" insights
+  - Later layers = MORE specific + MORE conceptual
+  - NEVER repeat previous layers
+  - ALL TEXT IN INDONESIAN
+  
+  Depth increases like:
+  Layer 1: "What is X?"
+  Layer 2: "How does X work underneath?"
+  Layer 3: "Why does X behave this way?"
+  Layer 4: "What if X wasn't X?"
+  
+  Output ONLY valid JSON.`;
+
+    const previousContent =
+      previousLayers.length > 0
+        ? previousLayers
+            .map(
+              (l) =>
+                `LAYER ${l.layer}:
+  Explanation: ${l.explanation.substring(0, 100)}...
+  Questions: ${l.questions.join(", ")}`
+            )
+            .join("\n\n")
+        : "No previous layers.";
+
+    const user = `SEED SPARK:
+  "${seedSparkText}"
+  
+  CURRENT LAYER: ${currentLayer}
+  ${previousLayers.length > 0 ? "PREVIOUS LAYERS:\n" + previousContent : ""}
+  
+  CHAOS: ${this.describeChaosLevel(chaos)}
+  
+  Generate Layer ${currentLayer} that:
+  - Goes deeper than Layer ${currentLayer - 1 || 1}
+  - Does NOT repeat previous content
+  ${
+    currentLayer === 1
+      ? "- Explains the core idea clearly"
+      : currentLayer === 2
+      ? "- Reveals mechanisms and contradictions"
+      : currentLayer === 3
+      ? "- Provides real scenarios and parallels"
+      : "- Explores abstract connections and mind-bending insights"
+  }
+  
+  Remember: Output ONLY the JSON object.`;
+
+    return { system, user };
+  }
+
+  buildDeepDiveSynthesisPrompt(
+    seedSparkText: string,
+    allLayers: DeepDiveLayer[]
+  ): { system: string; user: string } {
+    const system = `You are synthesizing a Deep Dive journey. Create a closing reflection that ties everything together.
+  
+  OUTPUT STRUCTURE:
+  {
+    "summary": "2-3 sentence summary of the journey in Indonesian",
+    "bigIdea": "The ONE big takeaway in Indonesian (1 sentence)",
+    "nextSteps": ["Exploration 1", "Exploration 2", "Exploration 3"],
+    "clusterConnection": "Optional: which concept cluster this relates to"
+  }
+  
+  This is the ENDING of an intellectual journey. Make it feel complete.
+  ALL TEXT IN INDONESIAN.
+  
+  Output ONLY valid JSON.`;
+
+    const layersSummary = allLayers
+      .map(
+        (l) =>
+          `Layer ${l.layer}: ${l.explanation.substring(
+            0,
+            80
+          )}...\nKey questions: ${l.questions.join(", ")}`
+      )
+      .join("\n\n");
+
+    const user = `SEED SPARK:
+  "${seedSparkText}"
+  
+  COMPLETE JOURNEY:
+  ${layersSummary}
+  
+  Create a synthesis that:
+  - Summarizes what we explored
+  - Captures the BIG IDEA
+  - Suggests where to go next
+  - (Optional) Links to concept clusters
   
   Remember: Output ONLY the JSON object.`;
 

@@ -3,7 +3,7 @@
 import { Tag, TagSelectionStrategy } from "@type/tag.types";
 import { TAG_SELECTION_CONFIG } from "@constants/defaultTags";
 import tagRepository from "./tagRepository";
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import { safeJSONParse } from "@utils/jsonUtils";
 
 class AdaptiveRandomizer {

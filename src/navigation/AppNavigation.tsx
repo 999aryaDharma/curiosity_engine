@@ -14,7 +14,7 @@ import ThreadPackViewScreen from "@screens/main/ThreadPackViewScreen";
 import HistoryScreen from "@screens/main/HistoryScreen";
 import SettingsScreen from "@screens/settings/SettingsScreen";
 
-import sqliteService from "@services/storage/sqliteService";
+import {sqliteService} from "@services/storage/sqliteService";
 import { mmkvService } from "@services/storage/mmkvService";
 import llmClient from "@services/llm/llmClient";
 import tagEngine from "@services/tag-engine/tagEngine";
