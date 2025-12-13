@@ -217,7 +217,7 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
 
   const allSparks = [
     threadPack.continuationSpark,
-    ...threadPack.derivedSparks,
+    ...(threadPack.derivedSparks && Array.isArray(threadPack.derivedSparks) ? threadPack.derivedSparks : []),
     threadPack.wildcardSpark,
   ];
 

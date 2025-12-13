@@ -6,9 +6,9 @@ import {
   ConceptLink,
   ClusterAnalysisResult,
 } from "@type/thread.types";
-import {sqliteService} from "@services/storage/sqliteService";
+import { sqliteService } from "@services/storage/sqliteService";
 import conceptGraphEngine from "./conceptGraph";
-import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
+import { safeJSONParse } from "@utils/jsonUtils";
 import { v4 as uuidv4 } from "uuid";
 
 class ClusterEngine {
@@ -27,6 +27,7 @@ class ClusterEngine {
     return clusters;
   }
 
+  // ... (kode clusterByDensity dll biarkan sama) ...
   private clusterByDensity(
     nodes: ConceptNode[],
     links: ConceptLink[]
@@ -54,7 +55,6 @@ class ClusterEngine {
 
       if (clusterNodes.size > 1) {
         const clusterName = this.generateClusterName(clusterNodes, nodes);
-
         const coherence = this.calculateCoherence(clusterNodes, links);
 
         clusters.push({
@@ -180,7 +180,8 @@ class ClusterEngine {
       [id]
     );
 
-    if (rows.length === 0) return null;
+    // FIX: Validasi array
+    if (!Array.isArray(rows) || rows.length === 0) return null;
 
     return this.mapRowToCluster(rows[0]);
   }
@@ -191,7 +192,8 @@ class ClusterEngine {
       [name]
     );
 
-    if (rows.length === 0) return null;
+    // FIX: Validasi array
+    if (!Array.isArray(rows) || rows.length === 0) return null;
 
     return this.mapRowToCluster(rows[0]);
   }
@@ -200,6 +202,9 @@ class ClusterEngine {
     const rows = await sqliteService.query<any>(
       `SELECT * FROM concept_clusters ORDER BY coherence DESC, spark_count DESC`
     );
+
+    // FIX: Validasi array untuk mencegah map of undefined
+    if (!Array.isArray(rows)) return [];
 
     return rows.map(this.mapRowToCluster);
   }
@@ -239,6 +244,8 @@ class ClusterEngine {
       );
 
       const validNodes = nodes.filter((n): n is ConceptNode => n !== null);
+
+      if (validNodes.length === 0) continue;
 
       const avgWeight =
         validNodes.reduce((sum, n) => sum + n.weight, 0) / validNodes.length;

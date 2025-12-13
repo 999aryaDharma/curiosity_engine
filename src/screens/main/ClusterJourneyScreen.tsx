@@ -1,4 +1,4 @@
-// src/screens/main/ClusterJourneyScreen.tsx
+// src/screens/main/ClusterJourneyScreen.tsx - FRESH DESIGN
 
 import React, { useEffect, useState } from "react";
 import {
@@ -10,20 +10,23 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  RouteProp,
-  useNavigation,
-  NavigationProp,
-} from "@react-navigation/native";
+import { RouteProp, NavigationProp } from "@react-navigation/native";
 import { RootStackParamList } from "@navigation/AppNavigation";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
 import { Spark } from "@type/spark.types";
-import Card from "@components/common/Card";
+import { ModeCard, SoftCard } from "@components/common/Card";
 import Button from "@components/common/Button";
 import LoadingSpinner from "@components/common/LoadingSpinner";
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  SHADOWS,
+} from "@constants/colors";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 
@@ -113,7 +116,7 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
           <LoadingSpinner
             variant="pulse"
             size="large"
-            message="Loading cluster journey..."
+            message="Loading journey..."
           />
         </View>
       </SafeAreaView>
@@ -122,135 +125,123 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
 
   if (!cluster) return null;
 
-  const clusterColor =
-    COLORS.clusters[
-      cluster.name.toLowerCase() as keyof typeof COLORS.clusters
-    ] || COLORS.primary.main;
-
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={["#FFFFFF", "#F0F9FF"]} style={styles.gradient}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Cluster Journey</Text>
-          <View style={styles.backButton} />
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Animated.View style={{ opacity: fadeAnim }}>
-            <Card
-              variant="gradient"
-              gradientColors={[clusterColor, COLORS.primary.light]}
-              style={styles.clusterCard}
-            >
-              <View style={styles.clusterHeader}>
-                <View
-                  style={[
-                    styles.clusterDot,
-                    { backgroundColor: COLORS.neutral.white },
-                  ]}
-                />
-                <Text style={styles.clusterName}>{cluster.name}</Text>
-              </View>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Cluster Journey</Text>
+        <View style={styles.backButton} />
+      </View>
 
-              <View style={styles.clusterStats}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{concepts.length}</Text>
-                  <Text style={styles.statLabel}>Concepts</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{sparks.length}</Text>
-                  <Text style={styles.statLabel}>Sparks</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>
-                    {Math.round(cluster.coherence * 100)}%
-                  </Text>
-                  <Text style={styles.statLabel}>Coherence</Text>
-                </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {/* Hero Card */}
+          <ModeCard color="mint" style={styles.heroCard}>
+            <View style={styles.heroHeader}>
+              <View style={styles.iconBadge}>
+                <Text style={styles.iconBadgeText}>🧠</Text>
               </View>
-            </Card>
-
-            <Text style={styles.sectionTitle}>Dominant Concepts</Text>
-            <View style={styles.conceptsContainer}>
-              {concepts.slice(0, 5).map((concept) => (
-                <View
-                  key={concept.id}
-                  style={[styles.conceptChip, { borderColor: clusterColor }]}
-                >
-                  <Text style={[styles.conceptText, { color: clusterColor }]}>
-                    {concept.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.weightBadge,
-                      { backgroundColor: clusterColor },
-                    ]}
-                  >
-                    <Text style={styles.weightText}>
-                      {Math.round(concept.weight * 100)}%
-                    </Text>
-                  </View>
-                </View>
-              ))}
             </View>
+            <Text style={styles.clusterName}>{cluster.name}</Text>
 
-            <Text style={styles.sectionTitle}>Spark History</Text>
-            {sparks.length === 0 ? (
-              <Card variant="outlined" style={styles.emptyCard}>
-                <Text style={styles.emptyText}>
-                  No sparks yet. This is the beginning of your journey.
-                </Text>
-              </Card>
-            ) : (
-              <View style={styles.sparkTimeline}>
-                {sparks.slice(0, 5).map((spark, index) => (
-                  <View key={spark.id} style={styles.timelineItem}>
-                    <View style={styles.timelineDot} />
-                    {index < sparks.length - 1 && (
-                      <View style={styles.timelineLine} />
-                    )}
-                    <Card variant="outlined" style={styles.sparkCard}>
-                      <Text style={styles.sparkText} numberOfLines={3}>
-                        {spark.text}
-                      </Text>
-                      <Text style={styles.sparkDate}>
-                        {new Date(spark.createdAt).toLocaleDateString()}
-                      </Text>
-                    </Card>
-                  </View>
-                ))}
+            <View style={styles.statsGrid}>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>{concepts.length}</Text>
+                <Text style={styles.statLabel}>Concepts</Text>
               </View>
-            )}
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>{sparks.length}</Text>
+                <Text style={styles.statLabel}>Sparks</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>
+                  {Math.round(cluster.coherence * 100)}%
+                </Text>
+                <Text style={styles.statLabel}>Coherence</Text>
+              </View>
+            </View>
+          </ModeCard>
 
-            <Card variant="elevated" style={styles.ctaCard}>
-              <Text style={styles.ctaTitle}>Ready to Continue?</Text>
-              <Text style={styles.ctaDescription}>
-                Generate a Thread Pack of 4 connected sparks that continue this
-                intellectual journey.
+          {/* Dominant Concepts */}
+          <Text style={styles.sectionTitle}>Key Concepts</Text>
+          <View style={styles.conceptsGrid}>
+            {concepts && Array.isArray(concepts) ? concepts.slice(0, 6).map((concept, index) => (
+              <View key={concept.id} style={styles.conceptPill}>
+                <Text style={styles.conceptName}>{concept.name}</Text>
+                <View style={styles.conceptWeightBadge}>
+                  <Text style={styles.conceptWeight}>
+                    {Math.round(concept.weight * 100)}%
+                  </Text>
+                </View>
+              </View>
+            )) : null}
+          </View>
+
+          {/* Recent Sparks */}
+          <Text style={styles.sectionTitle}>Recent Sparks</Text>
+          {(!sparks || sparks.length === 0) ? (
+            <SoftCard style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>✨</Text>
+              <Text style={styles.emptyText}>
+                No sparks yet. This is the beginning of your journey!
               </Text>
-              <Button
-                title="Continue the Thread"
-                onPress={handleContinueThread}
-                variant="gradient"
-                size="large"
-                fullWidth
-                style={styles.ctaButton}
-              />
-            </Card>
-          </Animated.View>
+            </SoftCard>
+          ) : (
+            <View style={styles.sparksTimeline}>
+              {sparks && Array.isArray(sparks) ? sparks.slice(0, 4).map((spark, index) => (
+                <View key={spark.id} style={styles.timelineItem}>
+                  <View style={styles.timelineDot} />
+                  {index < sparks.length - 1 && (
+                    <View style={styles.timelineLine} />
+                  )}
+                  <SoftCard style={styles.sparkCard}>
+                    <Text style={styles.sparkText} numberOfLines={2}>
+                      {spark.text}
+                    </Text>
+                    <Text style={styles.sparkDate}>
+                      {new Date(spark.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </SoftCard>
+                </View>
+              )) : null}
+            </View>
+          )}
 
-          <View style={{ height: SPACING.xxxl }} />
-        </ScrollView>
-      </LinearGradient>
+          {/* CTA Card */}
+          <ModeCard color="coral" style={styles.ctaCard}>
+            <Text style={styles.ctaEmoji}>🚀</Text>
+            <Text style={styles.ctaTitle}>Continue the Journey</Text>
+            <Text style={styles.ctaDescription}>
+              Generate 4 connected sparks that build on your exploration
+            </Text>
+            <Button
+              title="Generate Thread Pack"
+              onPress={handleContinueThread}
+              variant="soft"
+              size="large"
+              fullWidth
+              style={styles.ctaButton}
+            />
+          </ModeCard>
+
+          <View style={{ height: SPACING.huge }} />
+        </Animated.View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -258,18 +249,14 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral.white,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: COLORS.neutral.offWhite,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
   },
   backButton: {
     width: 40,
@@ -283,149 +270,187 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.base,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  clusterCard: {
+  heroCard: {
     marginBottom: SPACING.xl,
+    padding: SPACING.xl,
+    minHeight: 200,
   },
-  clusterHeader: {
-    flexDirection: "row",
+  heroHeader: {
+    marginBottom: SPACING.md,
+  },
+  iconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: BORDER_RADIUS.xxxl,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.lg,
   },
-  clusterDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: SPACING.md,
+  iconBadgeText: {
+    fontSize: 32,
   },
   clusterName: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: "bold",
+    fontSize: FONT_SIZES.xxxl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.white,
+    marginBottom: SPACING.xl,
   },
-  clusterStats: {
+  statsGrid: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-around",
   },
-  statItem: {
+  statBox: {
     alignItems: "center",
+    flex: 1,
   },
   statNumber: {
     fontSize: FONT_SIZES.xxxl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.white,
+    marginBottom: SPACING.xs / 2,
   },
   statLabel: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.xs,
     color: COLORS.neutral.white,
     opacity: 0.9,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: COLORS.neutral.white,
+    opacity: 0.3,
   },
   sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "bold",
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
+    marginTop: SPACING.xl,
     marginBottom: SPACING.md,
-    marginTop: SPACING.lg,
   },
-  conceptsContainer: {
+  conceptsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -SPACING.xs,
     marginBottom: SPACING.lg,
   },
-  conceptChip: {
+  conceptPill: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    borderWidth: 2,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.primary.light,
+    borderRadius: BORDER_RADIUS.full,
     paddingVertical: SPACING.sm,
-    marginBottom: SPACING.sm,
+    paddingLeft: SPACING.base,
+    paddingRight: SPACING.xs,
+    margin: SPACING.xs,
   },
-  conceptText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: "600",
-    flex: 1,
+  conceptName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.primary.main,
+    marginRight: SPACING.xs,
   },
-  weightBadge: {
+  conceptWeightBadge: {
+    backgroundColor: COLORS.primary.main,
+    borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs / 2,
-    borderRadius: BORDER_RADIUS.sm,
   },
-  weightText: {
+  conceptWeight: {
     fontSize: FONT_SIZES.xs,
-    fontWeight: "700",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.white,
   },
   emptyCard: {
-    padding: SPACING.lg,
+    padding: SPACING.xl,
+    alignItems: "center",
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: SPACING.md,
   },
   emptyText: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.base,
     color: COLORS.neutral.gray600,
     textAlign: "center",
+    lineHeight: FONT_SIZES.base * 1.5,
   },
-  sparkTimeline: {
+  sparksTimeline: {
     marginBottom: SPACING.lg,
   },
   timelineItem: {
     position: "relative",
-    paddingLeft: SPACING.xl,
+    paddingLeft: SPACING.xxl,
     marginBottom: SPACING.md,
   },
   timelineDot: {
     position: "absolute",
     left: 0,
-    top: SPACING.md,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    top: SPACING.base,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.primary.main,
+    borderWidth: 3,
+    borderColor: COLORS.neutral.white,
   },
   timelineLine: {
     position: "absolute",
-    left: 5,
-    top: SPACING.md + 12,
+    left: 7,
+    top: SPACING.base + 16,
     width: 2,
     height: "100%",
-    backgroundColor: COLORS.neutral.gray300,
+    backgroundColor: COLORS.neutral.gray200,
   },
   sparkCard: {
-    padding: SPACING.md,
+    padding: SPACING.base,
   },
   sparkText: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray700,
+    color: COLORS.neutral.gray800,
+    lineHeight: FONT_SIZES.sm * 1.5,
     marginBottom: SPACING.xs,
   },
   sparkDate: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.neutral.gray500,
+    fontWeight: FONT_WEIGHTS.medium,
   },
   ctaCard: {
-    padding: SPACING.lg,
     marginTop: SPACING.lg,
+    padding: SPACING.xl,
+    alignItems: "center",
+  },
+  ctaEmoji: {
+    fontSize: 56,
+    marginBottom: SPACING.md,
   },
   ctaTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
-    color: COLORS.neutral.black,
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.neutral.white,
     marginBottom: SPACING.sm,
     textAlign: "center",
   },
   ctaDescription: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray600,
+    color: COLORS.neutral.white,
+    opacity: 0.9,
     textAlign: "center",
     marginBottom: SPACING.lg,
+    lineHeight: FONT_SIZES.sm * 1.5,
   },
   ctaButton: {
     marginTop: SPACING.md,

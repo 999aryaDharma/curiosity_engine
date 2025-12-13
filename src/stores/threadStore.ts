@@ -1,12 +1,7 @@
-// src/stores/threadStore.ts
+// src/stores/threadStore.ts - FIXED VERSION
 
 import { create } from "zustand";
-import {
-  ConceptNode,
-  ConceptLink,
-  ConceptCluster,
-  ThreadGraph,
-} from "@type/thread.types";
+import { ConceptNode, ConceptLink, ConceptCluster } from "@type/thread.types";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 import clusterEngine from "@services/thread-engine/clusterEngine";
 
@@ -18,7 +13,6 @@ interface ThreadState {
   isLoading: boolean;
   error: string | null;
 
-  // Stats for thread graph
   stats: {
     totalConcepts: number;
     totalLinks: number;
@@ -57,18 +51,33 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
         clusterEngine.getAllClusters(),
       ]);
 
+      // DEFENSIVE: Ensure all are arrays
+      const safeNodes = Array.isArray(nodes) ? nodes : [];
+      const safeLinks = Array.isArray(links) ? links : [];
+      const safeClusters = Array.isArray(clusters) ? clusters : [];
+
       set({
-        nodes,
-        links,
-        clusters,
+        nodes: safeNodes,
+        links: safeLinks,
+        clusters: safeClusters,
         stats: {
-          totalConcepts: nodes.length,
-          totalLinks: links.length,
-          totalClusters: clusters.length,
-        }
+          totalConcepts: safeNodes.length,
+          totalLinks: safeLinks.length,
+          totalClusters: safeClusters.length,
+        },
       });
     } catch (error: any) {
-      set({ error: error.message });
+      set({
+        error: error.message,
+        nodes: [],
+        links: [],
+        clusters: [],
+        stats: {
+          totalConcepts: 0,
+          totalLinks: 0,
+          totalClusters: 0,
+        },
+      });
       console.error("[ThreadStore] Load graph failed:", error);
     } finally {
       set({ isLoading: false });
@@ -83,18 +92,18 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const clusters = await clusterEngine.detectClusters();
+      const safeClusters = Array.isArray(clusters) ? clusters : [];
+
       const state = get();
       set({
-        clusters,
+        clusters: safeClusters,
         stats: {
           ...state.stats,
-          totalClusters: clusters.length,
-          totalConcepts: state.nodes.length,
-          totalLinks: state.links.length
-        }
+          totalClusters: safeClusters.length,
+        },
       });
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.message, clusters: [] });
       console.error("[ThreadStore] Detect clusters failed:", error);
     } finally {
       set({ isLoading: false });
@@ -107,6 +116,7 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       set({ selectedCluster: cluster });
     } catch (error: any) {
       console.error("[ThreadStore] Select cluster failed:", error);
+      set({ selectedCluster: null });
     }
   },
 
@@ -116,7 +126,8 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
 
   getMostConnected: async (limit = 10) => {
     try {
-      return await conceptGraphEngine.getMostConnectedConcepts(limit);
+      const results = await conceptGraphEngine.getMostConnectedConcepts(limit);
+      return Array.isArray(results) ? results : [];
     } catch (error: any) {
       console.error("[ThreadStore] Get most connected failed:", error);
       return [];
@@ -136,7 +147,7 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
           totalConcepts: 0,
           totalLinks: 0,
           totalClusters: 0,
-        }
+        },
       });
     } catch (error: any) {
       set({ error: error.message });

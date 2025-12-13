@@ -201,7 +201,7 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Your Clusters</Text>
 
-              {clusters.map((cluster, index) => {
+              {clusters && Array.isArray(clusters) ? clusters.map((cluster, index) => {
                 const coherencePercent = Math.round(cluster.coherence * 100);
                 const colorIndex = index % clusterColors.length;
                 const color = clusterColors[colorIndex];
@@ -284,7 +284,7 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   </Animated.View>
                 );
-              })}
+              }) : null}
             </View>
 
             {/* Actions */}

@@ -46,6 +46,7 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   const { settings } = useSettingsStore();
 
   const [showInsight, setShowInsight] = useState(false);
+  const [previousSparkId, setPreviousSparkId] = useState<string | null>(null);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
   const insightAnim = React.useRef(new Animated.Value(0)).current;
@@ -57,7 +58,12 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   useEffect(() => {
     if (currentSpark) {
       markAsViewed(currentSpark.id);
-      setShowInsight(false);
+
+      // Only reset showInsight if this is a new spark (different from previous)
+      if (previousSparkId !== currentSpark.id) {
+        setShowInsight(false);
+        setPreviousSparkId(currentSpark.id);
+      }
 
       // Entrance animation
       Animated.parallel([
@@ -74,7 +80,7 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
         }),
       ]).start();
     }
-  }, [currentSpark]);
+  }, [currentSpark, previousSparkId]);
 
   const handleGenerate = async () => {
     if (dailyTags.length === 0) {
@@ -83,6 +89,7 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     }
 
     setShowInsight(false);
+    setPreviousSparkId(null); // Reset previous spark ID
     fadeAnim.setValue(0);
     scaleAnim.setValue(0.95);
 

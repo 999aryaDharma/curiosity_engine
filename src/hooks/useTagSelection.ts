@@ -29,7 +29,7 @@ export const useTagSelection = (initialTags?: string[]) => {
   useEffect(() => {
     if (initialTags) {
       setSelectedTagIds(initialTags);
-    } else if (dailyTags.length > 0 && selectedTagIds.length === 0) {
+    } else if (dailyTags && Array.isArray(dailyTags) && dailyTags.length > 0 && selectedTagIds.length === 0) {
       setSelectedTagIds(dailyTags.map((t) => t.id));
     }
   }, [dailyTags, initialTags]);
@@ -50,7 +50,7 @@ export const useTagSelection = (initialTags?: string[]) => {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedTagIds(dailyTags.map((t) => t.id));
+    setSelectedTagIds(dailyTags && Array.isArray(dailyTags) ? dailyTags.map((t) => t.id) : []);
   }, [dailyTags]);
 
   const clearAll = useCallback(() => {
@@ -75,7 +75,7 @@ export const useTagSelection = (initialTags?: string[]) => {
   }, [selectedTagIds, updateDailyTags]);
 
   const getSelectedTags = useCallback((): Tag[] => {
-    return allTags.filter((tag) => selectedTagIds.includes(tag.id));
+    return (allTags && Array.isArray(allTags) ? allTags : []).filter((tag) => selectedTagIds.includes(tag.id));
   }, [allTags, selectedTagIds]);
 
   const canShuffle = shuffleCount < 1;

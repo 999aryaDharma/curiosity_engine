@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navigation/native-stack";
+import {
+  createNativeStackNavigator,
+  NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import { View, ActivityIndicator } from "react-native";
 import Constants from "expo-constants";
 
@@ -14,12 +17,13 @@ import ThreadPackViewScreen from "@screens/main/ThreadPackViewScreen";
 import HistoryScreen from "@screens/main/HistoryScreen";
 import SettingsScreen from "@screens/settings/SettingsScreen";
 
-import {sqliteService} from "@services/storage/sqliteService";
+import { sqliteService } from "@services/storage/sqliteService";
 import { mmkvService } from "@services/storage/mmkvService";
 import llmClient from "@services/llm/llmClient";
 import tagEngine from "@services/tag-engine/tagEngine";
 import { getDefaultTagsWithIds } from "@constants/defaultTags";
 import { COLORS } from "@constants/colors";
+import { MigrationUtility } from "@/utils/migrationUtils";
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -60,6 +64,23 @@ export const AppNavigator: React.FC = () => {
 
       await sqliteService.initialize();
       console.log("[App] Database initialized");
+
+      // 3. RUN MIGRATION (CRITICAL!)
+      const needsMigration = await MigrationUtility.needsMigration();
+      if (needsMigration) {
+        console.log("[App] Running database migration...");
+        try {
+          await MigrationUtility.fixExistingDatabase();
+          console.log("[App] Migration completed successfully");
+        } catch (migrationError) {
+          console.error(
+            "[App] Migration failed, doing complete reset:",
+            migrationError
+          );
+          // Fallback: Complete reset
+          await MigrationUtility.completeReset();
+        }
+      }
 
       const defaultTags = getDefaultTagsWithIds();
       await tagEngine.initializeDefaultTags(defaultTags);

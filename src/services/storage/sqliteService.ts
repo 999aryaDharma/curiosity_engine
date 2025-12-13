@@ -6,14 +6,8 @@ class SQLiteService {
   private db: SQLite.SQLiteDatabase | null = null;
   private dbName = "curiosity_engine.db";
   private isInitialized = false;
-
-  // Queue for serializing database operations to prevent lock issues
-  // Kita pastikan tipe awalnya adalah Promise<void> yang sudah resolved
   private operationQueue: Promise<void> = Promise.resolve();
 
-  /**
-   * Initializes the database connection and runs migrations.
-   */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
       console.log("[SQLite] Already initialized");
@@ -29,16 +23,34 @@ class SQLiteService {
       console.log("[SQLite] Database initialized successfully");
     } catch (error) {
       console.error("[SQLite] Initialization failed:", error);
-      // Penting untuk melempar error agar kode pemanggil tahu inisialisasi gagal
       throw new Error("Failed to initialize database");
     }
   }
 
-  /**
-   * Runs all necessary database migrations within a transaction.
-   */
   private async runMigrations(): Promise<void> {
     if (!this.db) throw new Error("Database not opened");
+
+    try {
+      await this.db.runAsync("BEGIN TRANSACTION;");
+
+      // Create all base tables first
+      await this.createBaseTables();
+
+      // Check and add missing columns (for existing databases)
+      await this.addMissingColumnsIfNeeded();
+
+      // Commit transaction
+      await this.db.runAsync("COMMIT;");
+      console.log("[SQLite] Migrations completed");
+    } catch (error) {
+      await this.db.runAsync("ROLLBACK;");
+      console.error("[SQLite] Migration failed:", error);
+      throw error;
+    }
+  }
+
+  private async createBaseTables(): Promise<void> {
+    if (!this.db) return;
 
     const statements = [
       // Tags Table
@@ -64,6 +76,27 @@ class SQLiteService {
       )`,
       `CREATE INDEX IF NOT EXISTS idx_daily_tags_date ON daily_tag_selections(date)`,
 
+      // Sparks Table with ALL fields
+      `CREATE TABLE IF NOT EXISTS sparks (
+        id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        tags TEXT NOT NULL DEFAULT '[]',
+        mode INTEGER NOT NULL,
+        layers TEXT,
+        concept_links TEXT DEFAULT '[]',
+        follow_up TEXT,
+        created_at INTEGER NOT NULL,
+        viewed INTEGER DEFAULT 0,
+        saved INTEGER DEFAULT 0,
+        knowledge TEXT,
+        fun_fact TEXT,
+        application TEXT,
+        difficulty REAL DEFAULT 0.5,
+        knowledge_revealed INTEGER DEFAULT 0
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)`,
+      `CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)`,
+
       // Concept Nodes
       `CREATE TABLE IF NOT EXISTS concept_nodes (
         id TEXT PRIMARY KEY,
@@ -71,7 +104,7 @@ class SQLiteService {
         description TEXT,
         cluster TEXT NOT NULL,
         weight REAL DEFAULT 0.5,
-        spark_ids TEXT NOT NULL,
+        spark_ids TEXT NOT NULL DEFAULT '[]',
         created_at INTEGER NOT NULL,
         last_updated INTEGER NOT NULL
       )`,
@@ -85,7 +118,7 @@ class SQLiteService {
         strength REAL NOT NULL,
         link_type TEXT,
         last_update INTEGER NOT NULL,
-        spark_ids TEXT NOT NULL
+        spark_ids TEXT NOT NULL DEFAULT '[]'
       )`,
       `CREATE INDEX IF NOT EXISTS idx_links_concept_a ON concept_links(concept_a)`,
       `CREATE INDEX IF NOT EXISTS idx_links_concept_b ON concept_links(concept_b)`,
@@ -95,7 +128,7 @@ class SQLiteService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         description TEXT,
-        concepts TEXT NOT NULL,
+        concepts TEXT NOT NULL DEFAULT '[]',
         coherence REAL DEFAULT 0.5,
         spark_count INTEGER DEFAULT 0,
         last_updated INTEGER NOT NULL
@@ -109,7 +142,6 @@ class SQLiteService {
         strategy TEXT NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS idx_tag_history_tag_id ON tag_history(tag_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_tag_history_used_at ON tag_history(used_at DESC)`,
 
       // Settings
       `CREATE TABLE IF NOT EXISTS settings (
@@ -131,228 +163,119 @@ class SQLiteService {
         id TEXT PRIMARY KEY,
         seed_spark_id TEXT NOT NULL,
         seed_spark_text TEXT NOT NULL,
-        layers TEXT NOT NULL,
+        layers TEXT NOT NULL DEFAULT '[]',
         synthesis TEXT,
         current_layer INTEGER DEFAULT 0,
         max_layers INTEGER DEFAULT 4,
         is_complete INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL,
-        last_updated INTEGER NOT NULL,
-        FOREIGN KEY (seed_spark_id) REFERENCES sparks(id) ON DELETE CASCADE
+        last_updated INTEGER NOT NULL
       )`,
-      `CREATE INDEX IF NOT EXISTS idx_deepdive_seed ON deepdive_sessions(seed_spark_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_deepdive_updated ON deepdive_sessions(last_updated DESC)`,
-      `CREATE INDEX IF NOT EXISTS idx_deepdive_complete ON deepdive_sessions(is_complete)`,
     ];
 
+    for (const statement of statements) {
+      await this.db!.execAsync(statement);
+    }
+  }
+
+  private async addMissingColumnsIfNeeded(): Promise<void> {
+    if (!this.db) return;
+
     try {
-      // Menggunakan transaksi untuk eksekusi yang lebih cepat dan mencegah locking saat migrasi
-      await this.db.runAsync("BEGIN TRANSACTION;");
-
-      // Execute basic table creation statements first
-      for (const statement of statements) {
-        await this.db.execAsync(statement);
-      }
-
-      // Create the sparks table (this will be a no-op if it already exists)
-      await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS sparks (
-          id TEXT PRIMARY KEY,
-          text TEXT NOT NULL,
-          tags TEXT NOT NULL,
-          mode INTEGER NOT NULL,
-          layers TEXT,
-          concept_links TEXT,
-          follow_up TEXT,
-          created_at INTEGER NOT NULL,
-          viewed INTEGER DEFAULT 0,
-          saved INTEGER DEFAULT 0,
-          knowledge TEXT,
-          fun_fact TEXT,
-          application TEXT,
-          difficulty REAL DEFAULT 0.5,
-          knowledge_revealed INTEGER DEFAULT 0
-        )
-      `);
-
-      // Add new columns if they don't exist (for existing databases)
+      // Check current columns in sparks table
       const tableInfo = await this.db.getAllAsync<any>(
         "PRAGMA table_info(sparks);"
       );
-      const columnNames = tableInfo.map((col) => col.name);
 
-      // Add knowledge column if it doesn't exist
-      if (!columnNames.includes('knowledge')) {
-        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN knowledge TEXT;`);
-      }
+      // DEFENSIVE FIX: Ensure tableInfo is an array before mapping
+      const safeTableInfo = Array.isArray(tableInfo) ? tableInfo : [];
+      const columnNames = safeTableInfo.map((col) => col.name);
 
-      // Add fun_fact column if it doesn't exist
-      if (!columnNames.includes('fun_fact')) {
-        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN fun_fact TEXT;`);
-      }
-
-      // Add application column if it doesn't exist
-      if (!columnNames.includes('application')) {
-        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN application TEXT;`);
-      }
-
-      // Add difficulty column if it doesn't exist
-      if (!columnNames.includes('difficulty')) {
-        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN difficulty REAL DEFAULT 0.5;`);
-      }
-
-      // Add knowledge_revealed column if it doesn't exist
-      if (!columnNames.includes('knowledge_revealed')) {
-        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN knowledge_revealed INTEGER DEFAULT 0;`);
-      }
-
-      // Check for missing columns and handle migration if needed (keep legacy check for basic columns)
-      const requiredColumns = [
-        "id",
-        "text",
-        "tags",
-        "mode",
-        "layers",
-        "concept_links",
-        "follow_up",
-        "created_at",
-        "viewed",
-        "saved",
+      // Define new columns with their default values
+      const newColumns = [
+        { name: "knowledge", type: "TEXT", default: null },
+        { name: "fun_fact", type: "TEXT", default: null },
+        { name: "application", type: "TEXT", default: null },
+        { name: "difficulty", type: "REAL", default: 0.5 },
+        { name: "knowledge_revealed", type: "INTEGER", default: 0 },
+        { name: "tags", type: "TEXT", default: "'[]'" },
+        { name: "concept_links", type: "TEXT", default: "'[]'" },
       ];
-      const missingBasicColumns = requiredColumns.filter(
-        (col) => !columnNames.includes(col)
-      );
 
-      if (missingBasicColumns.length > 0) {
-        console.log(
-          `[SQLite] Missing basic columns in sparks table:`,
-          missingBasicColumns
-        );
-
-        // If basic columns are missing, something is very wrong - we need to recreate the table
-        const existingSparks = await this.db.getAllAsync<any>(
-          "SELECT * FROM sparks;"
-        );
-
-        // Drop the old table
-        await this.db.execAsync("DROP TABLE sparks;");
-
-        // Create the new table with the complete schema
-        await this.db.execAsync(`
-          CREATE TABLE sparks (
-            id TEXT PRIMARY KEY,
-            text TEXT NOT NULL,
-            tags TEXT NOT NULL,
-            mode INTEGER NOT NULL,
-            layers TEXT,
-            concept_links TEXT,
-            follow_up TEXT,
-            created_at INTEGER NOT NULL,
-            viewed INTEGER DEFAULT 0,
-            saved INTEGER DEFAULT 0,
-            knowledge TEXT,
-            fun_fact TEXT,
-            application TEXT,
-            difficulty REAL DEFAULT 0.5,
-            knowledge_revealed INTEGER DEFAULT 0
-          )
-        `);
-
-        // Re-insert data, ensuring new columns have proper defaults
-        for (const spark of existingSparks) {
-          await this.db.runAsync(
-            `INSERT INTO sparks (
-              id, text, tags, mode, layers, concept_links, follow_up,
-              created_at, viewed, saved, knowledge, fun_fact, application,
-              difficulty, knowledge_revealed
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              spark.id,
-              spark.text,
-              spark.tags,
-              spark.mode,
-              spark.layers,
-              spark.concept_links,
-              spark.follow_up,
-              spark.created_at,
-              spark.viewed,
-              spark.saved,
-              spark.knowledge || null,  // New column
-              spark.fun_fact || null,  // New column
-              spark.application || null,  // New column
-              spark.difficulty !== undefined ? spark.difficulty : 0.5,  // New column with default
-              spark.knowledge_revealed || 0  // New column with default
-            ]
+      // Add missing columns
+      for (const col of newColumns) {
+        if (!columnNames.includes(col.name)) {
+          console.log(`[SQLite] Adding missing column: ${col.name}`);
+          const defaultValue =
+            col.default === null ? "" : `DEFAULT ${col.default}`;
+          await this.db.execAsync(
+            `ALTER TABLE sparks ADD COLUMN ${col.name} ${col.type} ${defaultValue};`
           );
         }
       }
 
-      // Create indexes for the sparks table after ensuring it has the correct schema
-      await this.db.execAsync(
-        "CREATE INDEX IF NOT EXISTS idx_sparks_mode ON sparks(mode)"
-      );
-      await this.db.execAsync(
-        "CREATE INDEX IF NOT EXISTS idx_sparks_created_at ON sparks(created_at DESC)"
-      );
+      // FIX: Ensure existing rows have proper JSON defaults
+      await this.db.execAsync(`
+        UPDATE sparks 
+        SET tags = '[]' 
+        WHERE tags IS NULL OR tags = '';
+      `);
 
-      // Commit transaction setelah semua migrasi selesai
-      await this.db.runAsync("COMMIT;");
-      console.log("[SQLite] Migrations completed");
+      await this.db.execAsync(`
+        UPDATE sparks 
+        SET concept_links = '[]' 
+        WHERE concept_links IS NULL OR concept_links = '';
+      `);
+
+      console.log("[SQLite] Migration completed successfully");
     } catch (error) {
-      // Jika terjadi kesalahan di tengah jalan, ROLLBACK transaksi
-      await this.db.runAsync("ROLLBACK;");
-      console.error("[SQLite] Migration failed:", error);
-      throw error; // Lempar kembali errornya
+      console.error("[SQLite] Failed to add missing columns:", error);
+      throw error;
     }
   }
 
-  /**
-   * Executes a DML statement (INSERT, UPDATE, DELETE) sequentially via the queue.
-   */
+  // Rest of the methods remain the same...
   async execute(
     sql: string,
     params: any[] = []
   ): Promise<SQLite.SQLiteRunResult> {
-    if (!this.db) {
-      throw new Error("Database not initialized");
-    }
+    if (!this.db) throw new Error("Database not initialized");
 
-    // Kita membuat promise baru yang akan menunggu giliran di antrian
-    const operationPromise = this.operationQueue
-      .catch(() => {}) // Tangkap error dari promise sebelumnya di antrian untuk mencegah crash berantai
-      .then(async () => {
-        // Ketika giliran tiba, jalankan operasi database yang sebenarnya
-        return await this.db!.runAsync(sql, params);
-      });
-
-    // Perbarui operationQueue untuk menunggu promise saat ini selesai sebelum operasi berikutnya dimulai
-    this.operationQueue = operationPromise.then(() => {}).catch(() => {});
-
-    // Kembalikan promise operasi yang sebenarnya ke pemanggil
-    return operationPromise;
-  }
-
-  /**
-   * Executes a query (SELECT) statement sequentially via the queue.
-   */
-  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    if (!this.db) {
-      throw new Error("Database not initialized");
-    }
-
-    // Logika antrian serupa dengan 'execute', tetapi untuk getAllAsync
     const operationPromise = this.operationQueue
       .catch(() => {})
       .then(async () => {
-        // Gunakan getAllAsync untuk operasi baca yang mengembalikan banyak baris
-        return await this.db!.getAllAsync<T>(sql, params);
+        return await this.db!.runAsync(sql, params);
       });
 
-    // Perbarui operationQueue untuk menunggu promise saat ini selesai
+    this.operationQueue = operationPromise.then(() => {}).catch(() => {});
+    return operationPromise;
+  }
+
+  // UPDATE METHOD QUERY INI
+  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+    if (!this.db) {
+      console.warn("[SQLite] Query attempted before initialization");
+      return []; // Return empty array instead of throwing if possible, or keep throw
+    }
+
+    const operationPromise = this.operationQueue
+      .catch(() => {})
+      .then(async () => {
+        try {
+          const result = await this.db!.getAllAsync<T>(sql, params);
+          // GARANSI: Selalu kembalikan array
+          return Array.isArray(result) ? result : [];
+        } catch (error) {
+          console.error(`[SQLite] Query failed: ${sql}`, error);
+          return []; // Kembalikan array kosong jika query error
+        }
+      });
+
     this.operationQueue = operationPromise.then(() => {}).catch(() => {});
 
-    // Kembalikan promise operasi query ke pemanggil
-    return operationPromise;
+    // GARANSI LAPIS KEDUA: Jika operationPromise entah bagaimana undefined
+    const finalResult = await operationPromise;
+    return Array.isArray(finalResult) ? finalResult : [];
   }
 
   async insert(table: string, data: Record<string, any>): Promise<number> {
@@ -395,7 +318,7 @@ class SQLiteService {
     return result.changes;
   }
 
-  async dropAllTables(): Promise<void> {
+  async resetDatabase(): Promise<void> {
     const tables = [
       "tags",
       "daily_tag_selections",
@@ -406,45 +329,15 @@ class SQLiteService {
       "tag_history",
       "settings",
       "metadata",
+      "deepdive_sessions",
     ];
 
     for (const table of tables) {
       await this.execute(`DROP TABLE IF EXISTS ${table}`);
     }
 
-    console.log("[SQLite] All tables dropped");
-  }
-
-  async resetDatabase(): Promise<void> {
-    await this.dropAllTables();
     await this.runMigrations();
     console.log("[SQLite] Database reset complete");
-  }
-
-  async getMetadata(key: string): Promise<string | null> {
-    const results = await this.query<{ value: string }>(
-      "SELECT value FROM metadata WHERE key = ?",
-      [key]
-    );
-
-    return results.length > 0 ? results[0].value : null;
-  }
-
-  async setMetadata(key: string, value: string): Promise<void> {
-    const now = Date.now();
-    const existing = await this.getMetadata(key);
-
-    if (existing) {
-      await this.update("metadata", { value, updated_at: now }, "key = ?", [
-        key,
-      ]);
-    } else {
-      await this.insert("metadata", {
-        key,
-        value,
-        updated_at: now,
-      });
-    }
   }
 
   async close(): Promise<void> {
@@ -457,5 +350,4 @@ class SQLiteService {
   }
 }
 
-// Ekspor instance tunggal (Singleton) agar seluruh aplikasi menggunakan koneksi DB dan queue yang sama
 export const sqliteService = new SQLiteService();

@@ -25,8 +25,19 @@ import { v4 as uuidv4 } from "uuid";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 
 class SparkGenerator {
-  async generateQuickSpark(tags: Tag[], difficulty: number = 0.5): Promise<Spark> {
-    const { system, user } = promptBuilder.buildQuickLearnPrompt(tags, difficulty);
+  async generateQuickSpark(
+    tags: Tag[],
+    difficulty: number = 0.5
+  ): Promise<Spark> {
+    // Defensive check
+    if (!Array.isArray(tags) || tags.length === 0) {
+      throw new Error("Tags array is required and cannot be empty");
+    }
+
+    const { system, user } = promptBuilder.buildQuickLearnPrompt(
+      tags,
+      difficulty
+    );
 
     const startTime = Date.now();
     const llmResponse = await llmClient.generateWithRetry({
@@ -51,22 +62,21 @@ class SparkGenerator {
 
     const spark: Spark = {
       id: uuidv4(),
-      text: data.question, // Changed from data.spark
-      knowledge: data.knowledge, // NEW
-      funFact: data.funFact, // NEW
-      application: data.application, // NEW
-      tags: tags.map((t) => t.id),
+      text: data.question,
+      knowledge: data.knowledge,
+      funFact: data.funFact,
+      application: data.application,
+      tags: Array.isArray(tags) ? tags.map((t) => t.id) : [],
       mode: 1,
-      conceptLinks: data.conceptLinks,
-      difficulty: difficulty, // NEW (was difficulty)
+      conceptLinks: Array.isArray(data.conceptLinks) ? data.conceptLinks : [],
+      difficulty: difficulty,
       createdAt: Date.now(),
       viewed: false,
       saved: false,
-      knowledgeRevealed: false, // NEW
+      knowledgeRevealed: false,
     };
 
     await this.saveSpark(spark);
-
     return spark;
   }
 
@@ -286,7 +296,11 @@ class SparkGenerator {
         return await this.generateQuickSpark(tags, difficulty);
 
       case 2:
-        return await this.generateDeepDive(tags, options?.layers || 4, difficulty);
+        return await this.generateDeepDive(
+          tags,
+          options?.layers || 4,
+          difficulty
+        );
 
       case 3:
         return await this.generateThreadSpark(
@@ -302,13 +316,28 @@ class SparkGenerator {
   }
 
   private async saveSpark(spark: Spark): Promise<void> {
+    // Ensure arrays are properly stringified
+    const tagsJson = safeJSONStringify(
+      Array.isArray(spark.tags) ? spark.tags : [],
+      "[]"
+    );
+
+    const conceptLinksJson = safeJSONStringify(
+      Array.isArray(spark.conceptLinks) ? spark.conceptLinks : [],
+      "[]"
+    );
+
+    const layersJson = spark.layers
+      ? safeJSONStringify(spark.layers, "null")
+      : null;
+
     await sqliteService.insert("sparks", {
       id: spark.id,
       text: spark.text,
-      tags: safeJSONStringify(spark.tags, "[]"),
+      tags: tagsJson,
       mode: spark.mode,
-      layers: spark.layers ? safeJSONStringify(spark.layers, "null") : null,
-      concept_links: safeJSONStringify(spark.conceptLinks, "[]"),
+      layers: layersJson,
+      concept_links: conceptLinksJson,
       follow_up: spark.followUp || null,
       created_at: spark.createdAt,
       viewed: spark.viewed ? 1 : 0,
@@ -324,79 +353,119 @@ class SparkGenerator {
   }
 
   async getSparkById(id: string): Promise<Spark | null> {
-    const rows = await sqliteService.query<any>(
-      `SELECT * FROM sparks WHERE id = ? LIMIT 1`,
-      [id]
-    );
+    try {
+      const rows = await sqliteService.query<any>(
+        `SELECT * FROM sparks WHERE id = ? LIMIT 1`,
+        [id]
+      );
 
-    if (rows.length === 0) return null;
-
-    return this.mapRowToSpark(rows[0]);
+      if (rows.length === 0) return null;
+      return this.mapRowToSpark(rows[0]);
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to get spark:", error);
+      return null;
+    }
   }
 
   async getAllSparks(): Promise<Spark[]> {
-    const rows = await sqliteService.query<any>(
-      `SELECT * FROM sparks ORDER BY created_at DESC`
-    );
+    try {
+      const rows = await sqliteService.query<any>(
+        `SELECT * FROM sparks ORDER BY created_at DESC`
+      );
 
-    return rows.map((row) => this.mapRowToSpark(row));
+      // FIX: Validasi array
+      if (!Array.isArray(rows)) return [];
+
+      return rows
+        .map((row) => this.mapRowToSpark(row))
+        .filter((s) => s !== null) as Spark[];
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to get all sparks:", error);
+      return [];
+    }
   }
 
   async getRecentSparks(limit: number = 20): Promise<Spark[]> {
-    const rows = await sqliteService.query<any>(
-      `SELECT * FROM sparks ORDER BY created_at DESC LIMIT ?`,
-      [limit]
-    );
+    try {
+      const rows = await sqliteService.query<any>(
+        `SELECT * FROM sparks ORDER BY created_at DESC LIMIT ?`,
+        [limit]
+      );
 
-    return rows.map((row) => this.mapRowToSpark(row));
+      // FIX: Validasi array
+      if (!Array.isArray(rows)) return [];
+
+      return rows
+        .map((row) => this.mapRowToSpark(row))
+        .filter((s) => s !== null) as Spark[];
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to get recent sparks:", error);
+      return [];
+    }
   }
 
-  async getSparksByMode(mode: SparkMode): Promise<Spark[]> {
-    const rows = await sqliteService.query<any>(
-      `SELECT * FROM sparks WHERE mode = ? ORDER BY created_at DESC`,
-      [mode]
-    );
+  private mapRowToSpark(row: any): Spark | null {
+    try {
+      // DEFENSIVE PARSING with fallbacks
+      const tags = safeJSONParse(row.tags, []);
+      const conceptLinks = safeJSONParse(row.concept_links, []);
+      const layers = row.layers
+        ? safeJSONParse(row.layers, undefined)
+        : undefined;
 
-    return rows.map((row) => this.mapRowToSpark(row));
+      // Ensure arrays are actually arrays
+      const safeTags = Array.isArray(tags) ? tags : [];
+      const safeConceptLinks = Array.isArray(conceptLinks) ? conceptLinks : [];
+
+      return {
+        id: row.id,
+        text: row.text || "",
+        knowledge: row.knowledge || undefined,
+        funFact: row.fun_fact || undefined,
+        application: row.application || undefined,
+        difficulty: row.difficulty !== undefined ? row.difficulty : 0.5,
+        tags: safeTags,
+        mode: row.mode || 1,
+        layers: layers,
+        conceptLinks: safeConceptLinks,
+        followUp: row.follow_up || undefined,
+        createdAt: row.created_at || Date.now(),
+        viewed: Boolean(row.viewed),
+        saved: Boolean(row.saved),
+        knowledgeRevealed: Boolean(row.knowledge_revealed),
+      };
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to map row to spark:", error, row);
+      return null;
+    }
   }
 
   async markSparkAsViewed(id: string): Promise<void> {
-    await sqliteService.update("sparks", { viewed: 1 }, "id = ?", [id]);
+    try {
+      await sqliteService.update("sparks", { viewed: 1 }, "id = ?", [id]);
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to mark as viewed:", error);
+    }
   }
 
   async toggleSparkSaved(id: string): Promise<boolean> {
-    const spark = await this.getSparkById(id);
-    if (!spark) throw new Error("Spark not found");
+    try {
+      const spark = await this.getSparkById(id);
+      if (!spark) throw new Error("Spark not found");
 
-    const newSavedState = !spark.saved;
-    await sqliteService.update(
-      "sparks",
-      { saved: newSavedState ? 1 : 0 },
-      "id = ?",
-      [id]
-    );
+      const newSavedState = !spark.saved;
+      await sqliteService.update(
+        "sparks",
+        { saved: newSavedState ? 1 : 0 },
+        "id = ?",
+        [id]
+      );
 
-    return newSavedState;
-  }
-
-  private mapRowToSpark(row: any): Spark {
-    return {
-      id: row.id,
-      text: row.text,
-      knowledge: row.knowledge || undefined,
-      funFact: row.fun_fact || undefined,
-      application: row.application || undefined,
-      difficulty: row.difficulty !== undefined ? row.difficulty : 0.5,
-      tags: safeJSONParse(row.tags, []),
-      mode: row.mode,
-      layers: row.layers ? safeJSONParse(row.layers, undefined) : undefined,
-      conceptLinks: safeJSONParse(row.concept_links, []),
-      followUp: row.follow_up,
-      createdAt: row.created_at,
-      viewed: Boolean(row.viewed),
-      saved: Boolean(row.saved),
-      knowledgeRevealed: Boolean(row.knowledge_revealed),
-    };
+      return newSavedState;
+    } catch (error) {
+      console.error("[SparkGenerator] Failed to toggle saved:", error);
+      return false;
+    }
   }
 
   async generateThreadPack(

@@ -157,7 +157,7 @@ export const SparkCard: React.FC<SparkCardProps> = ({
           )}
 
           {/* Concept Links (if not compact) */}
-          {!compact && spark.conceptLinks && spark.conceptLinks.length > 0 && (
+          {!compact && spark.conceptLinks && Array.isArray(spark.conceptLinks) && spark.conceptLinks.length > 0 && (
             <View style={styles.conceptsContainer}>
               {spark.conceptLinks.slice(0, 3).map((concept, index) => (
                 <View

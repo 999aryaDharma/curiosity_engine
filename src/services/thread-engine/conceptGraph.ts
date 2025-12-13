@@ -1,15 +1,11 @@
 // src/services/thread-engine/conceptGraph.ts
 
-import {
-  ConceptNode,
-  ConceptLink,
-  ConceptExtractionResult,
-} from "@type/thread.types";
-import {sqliteService} from "@services/storage/sqliteService";
+import { ConceptNode, ConceptLink } from "@type/thread.types";
+import { sqliteService } from "@services/storage/sqliteService";
 import llmClient from "@services/llm/llmClient";
 import promptBuilder from "@services/llm/promptBuilder";
 import responseValidator from "@services/llm/responseValidator";
-import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
+import { safeJSONParse } from "@utils/jsonUtils";
 import { v4 as uuidv4 } from "uuid";
 
 class ConceptGraphEngine {
@@ -178,12 +174,6 @@ class ConceptGraphEngine {
         await this.createOrUpdateLink(concepts[i], concepts[j], sparkId);
       }
     }
-
-    console.log(
-      `[ConceptGraph] Processed ${concepts.length} concepts, ${
-        (concepts.length * (concepts.length - 1)) / 2
-      } links`
-    );
   }
 
   async getConceptByName(name: string): Promise<ConceptNode | null> {
@@ -192,7 +182,8 @@ class ConceptGraphEngine {
       [name]
     );
 
-    if (rows.length === 0) return null;
+    // FIX: Validasi array agar tidak crash
+    if (!Array.isArray(rows) || rows.length === 0) return null;
 
     return this.mapRowToNode(rows[0]);
   }
@@ -203,7 +194,8 @@ class ConceptGraphEngine {
       [id]
     );
 
-    if (rows.length === 0) return null;
+    // FIX: Validasi array
+    if (!Array.isArray(rows) || rows.length === 0) return null;
 
     return this.mapRowToNode(rows[0]);
   }
@@ -212,6 +204,9 @@ class ConceptGraphEngine {
     const rows = await sqliteService.query<any>(
       `SELECT * FROM concept_nodes ORDER BY weight DESC`
     );
+
+    // FIX: Tambahkan pengecekan ini untuk mencegah "map of undefined"
+    if (!Array.isArray(rows)) return [];
 
     return rows.map(this.mapRowToNode);
   }
@@ -227,7 +222,8 @@ class ConceptGraphEngine {
       [idA, idB]
     );
 
-    if (rows.length === 0) return null;
+    // FIX: Validasi array
+    if (!Array.isArray(rows) || rows.length === 0) return null;
 
     return this.mapRowToLink(rows[0]);
   }
@@ -238,6 +234,9 @@ class ConceptGraphEngine {
       [conceptId, conceptId]
     );
 
+    // FIX: Validasi array
+    if (!Array.isArray(rows)) return [];
+
     return rows.map(this.mapRowToLink);
   }
 
@@ -245,6 +244,9 @@ class ConceptGraphEngine {
     const rows = await sqliteService.query<any>(
       `SELECT * FROM concept_links ORDER BY strength DESC`
     );
+
+    // FIX: Validasi array untuk mencegah error
+    if (!Array.isArray(rows)) return [];
 
     return rows.map(this.mapRowToLink);
   }
@@ -255,6 +257,7 @@ class ConceptGraphEngine {
       [threshold]
     );
 
+    if (!Array.isArray(rows)) return [];
     return rows.map(this.mapRowToLink);
   }
 
@@ -269,6 +272,7 @@ class ConceptGraphEngine {
       [limit]
     );
 
+    if (!Array.isArray(rows)) return [];
     return rows.map(this.mapRowToNode);
   }
 

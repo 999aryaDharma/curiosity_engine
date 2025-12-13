@@ -1,12 +1,12 @@
-// src/screens/main/HomeScreen.tsx - FRESH MINT HOME
+// src/screens/main/HomeScreen.tsx - COMPLETELY FIXED
 
 import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
+  ScrollView,
   Animated,
   RefreshControl,
 } from "react-native";
@@ -23,8 +23,6 @@ import {
   SPACING,
   FONT_SIZES,
   FONT_WEIGHTS,
-  BORDER_RADIUS,
-  SHADOWS,
   ANIMATION,
 } from "@constants/colors";
 
@@ -66,9 +64,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, []);
 
   const loadData = async () => {
-    await loadDailyTags();
-    await loadRecentSparks(5);
-    await notificationService.scheduleSparkReminder();
+    try {
+      await loadDailyTags();
+      await loadRecentSparks(5);
+      await notificationService.scheduleSparkReminder();
+    } catch (error) {
+      console.error("[HomeScreen] Load data failed:", error);
+    }
   };
 
   const handleRefresh = async () => {
@@ -78,7 +80,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const handleShuffleTags = async () => {
-    // Animate shuffle
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 0.5,
@@ -108,6 +109,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         break;
     }
   };
+
+  // DEFENSIVE: Ensure arrays are valid
+  const safeDailyTags = Array.isArray(dailyTags) ? dailyTags : [];
+  const safeRecentSparks = Array.isArray(recentSparks) ? recentSparks : [];
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -170,8 +175,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tagsScroll}
           >
-            {dailyTags && Array.isArray(dailyTags) && dailyTags.length > 0 ? (
-              dailyTags.map((tag, index) => (
+            {safeDailyTags.length > 0 ? (
+              safeDailyTags.map((tag, index) => (
                 <Animated.View
                   key={tag.id}
                   style={{
@@ -200,7 +205,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </Animated.View>
               ))
             ) : (
-              <Text style={styles.emptyText}>Loading themes...</Text>
+              <Text style={styles.emptyText}>
+                {tagsLoading ? "Loading themes..." : "No themes available"}
+              </Text>
             )}
           </ScrollView>
         </Animated.View>
@@ -305,7 +312,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </Animated.View>
 
         {/* Recent Sparks */}
-        {recentSparks && Array.isArray(recentSparks) && recentSparks.length > 0 && (
+        {safeRecentSparks.length > 0 && (
           <Animated.View
             style={[
               styles.section,
@@ -321,7 +328,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {recentSparks.slice(0, 3).map((spark, index) => (
+            {safeRecentSparks.slice(0, 3).map((spark, index) => (
               <Animated.View
                 key={spark.id}
                 style={{
@@ -382,9 +389,8 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: BORDER_RADIUS.full,
+    borderRadius: 20,
     backgroundColor: COLORS.neutral.white,
-    ...SHADOWS.soft,
   },
   settingsIcon: {
     fontSize: 20,
@@ -432,7 +438,7 @@ const styles = StyleSheet.create({
   modeIcon: {
     width: 56,
     height: 56,
-    borderRadius: BORDER_RADIUS.xxl,
+    borderRadius: 28,
     backgroundColor: "rgba(255, 255, 255, 0.25)",
     justifyContent: "center",
     alignItems: "center",

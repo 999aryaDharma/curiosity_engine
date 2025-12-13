@@ -1,6 +1,6 @@
 // src/services/tag-engine/tagRepository.ts
 
-import {sqliteService} from "@services/storage/sqliteService";
+import { sqliteService } from "@services/storage/sqliteService";
 import {
   Tag,
   CreateTagInput,
@@ -15,6 +15,12 @@ class TagRepository {
       `SELECT * FROM tags ORDER BY name ASC`
     );
 
+    // FIX: Cek apakah rows benar-benar array sebelum .map
+    if (!Array.isArray(rows)) {
+      console.warn("[TagRepository] getAllTags returned non-array:", rows);
+      return [];
+    }
+
     return rows.map(this.mapRowToTag);
   }
 
@@ -22,6 +28,8 @@ class TagRepository {
     const rows = await sqliteService.query<Tag>(
       `SELECT * FROM tags WHERE is_default = 1 ORDER BY name ASC`
     );
+
+    if (!Array.isArray(rows)) return []; // FIX
 
     return rows.map(this.mapRowToTag);
   }
@@ -35,6 +43,7 @@ class TagRepository {
       ids
     );
 
+    if (!Array.isArray(rows)) return []; // FIX
     return rows.map(this.mapRowToTag);
   }
 
@@ -43,6 +52,7 @@ class TagRepository {
       `SELECT * FROM tags WHERE cluster = ? ORDER BY usage_count DESC`,
       [cluster]
     );
+    if (!Array.isArray(rows)) return []; // FIX
 
     return rows.map(this.mapRowToTag);
   }
@@ -52,6 +62,8 @@ class TagRepository {
       `SELECT * FROM tags WHERE id = ? LIMIT 1`,
       [id]
     );
+
+    if (!Array.isArray(rows)) return null; // FIX
 
     return rows.length > 0 ? this.mapRowToTag(rows[0]) : null;
   }
@@ -128,6 +140,7 @@ class TagRepository {
       [limit]
     );
 
+    if (!Array.isArray(rows)) return []; // FIX
     return rows.map(this.mapRowToTag);
   }
 

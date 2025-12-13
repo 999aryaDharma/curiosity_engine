@@ -1,4 +1,4 @@
-// src/stores/tagStore.ts
+// src/stores/tagStore.ts - FIXED VERSION
 
 import { create } from "zustand";
 import { Tag, DailyTagSelection } from "@type/tag.types";
@@ -55,9 +55,10 @@ export const useTagStore = create<TagState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const tags = await tagEngine.getAllTags();
-      set({ allTags: tags });
+      // DEFENSIVE: Ensure it's an array
+      set({ allTags: Array.isArray(tags) ? tags : [] });
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.message, allTags: [] });
       console.error("[TagStore] Load all tags failed:", error);
     } finally {
       set({ isLoading: false });
@@ -70,12 +71,16 @@ export const useTagStore = create<TagState>((set, get) => ({
       const selection = await tagEngine.getDailyTags();
       if (selection) {
         const tags = await tagRepository.getTagsByIds(selection.tags);
-        set({ dailyTags: tags, dailySelection: selection });
+        // DEFENSIVE: Ensure arrays
+        set({
+          dailyTags: Array.isArray(tags) ? tags : [],
+          dailySelection: selection,
+        });
       } else {
         await get().generateDailyTags();
       }
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.message, dailyTags: [] });
       console.error("[TagStore] Load daily tags failed:", error);
     } finally {
       set({ isLoading: false });
@@ -87,9 +92,13 @@ export const useTagStore = create<TagState>((set, get) => ({
     try {
       const selection = await tagEngine.generateDailyTags(force);
       const tags = await tagRepository.getTagsByIds(selection.tags);
-      set({ dailyTags: tags, dailySelection: selection });
+      // DEFENSIVE: Ensure arrays
+      set({
+        dailyTags: Array.isArray(tags) ? tags : [],
+        dailySelection: selection,
+      });
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.message, dailyTags: [] });
       console.error("[TagStore] Generate daily tags failed:", error);
     } finally {
       set({ isLoading: false });
@@ -99,9 +108,14 @@ export const useTagStore = create<TagState>((set, get) => ({
   updateDailyTags: async (tagIds: string[]) => {
     set({ isLoading: true, error: null });
     try {
-      const selection = await tagEngine.updateDailyTags(tagIds);
+      // DEFENSIVE: Ensure input is array
+      const safeTagIds = Array.isArray(tagIds) ? tagIds : [];
+      const selection = await tagEngine.updateDailyTags(safeTagIds);
       const tags = await tagRepository.getTagsByIds(selection.tags);
-      set({ dailyTags: tags, dailySelection: selection });
+      set({
+        dailyTags: Array.isArray(tags) ? tags : [],
+        dailySelection: selection,
+      });
     } catch (error: any) {
       set({ error: error.message });
       console.error("[TagStore] Update daily tags failed:", error);
@@ -112,17 +126,25 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   selectTag: (tagId: string) => {
     set((state) => {
-      if (state.selectedTags.includes(tagId)) {
+      const currentSelected = Array.isArray(state.selectedTags)
+        ? state.selectedTags
+        : [];
+      if (currentSelected.includes(tagId)) {
         return state;
       }
-      return { selectedTags: [...state.selectedTags, tagId] };
+      return { selectedTags: [...currentSelected, tagId] };
     });
   },
 
   deselectTag: (tagId: string) => {
-    set((state) => ({
-      selectedTags: state.selectedTags.filter((id) => id !== tagId),
-    }));
+    set((state) => {
+      const currentSelected = Array.isArray(state.selectedTags)
+        ? state.selectedTags
+        : [];
+      return {
+        selectedTags: currentSelected.filter((id) => id !== tagId),
+      };
+    });
   },
 
   clearSelection: () => {
@@ -131,7 +153,8 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   searchTags: async (query: string) => {
     try {
-      return await tagEngine.searchTags(query);
+      const results = await tagEngine.searchTags(query);
+      return Array.isArray(results) ? results : [];
     } catch (error: any) {
       console.error("[TagStore] Search failed:", error);
       return [];
