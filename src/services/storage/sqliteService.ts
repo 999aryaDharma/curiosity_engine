@@ -166,16 +166,47 @@ class SQLiteService {
           follow_up TEXT,
           created_at INTEGER NOT NULL,
           viewed INTEGER DEFAULT 0,
-          saved INTEGER DEFAULT 0
+          saved INTEGER DEFAULT 0,
+          knowledge TEXT,
+          fun_fact TEXT,
+          application TEXT,
+          difficulty REAL DEFAULT 0.5,
+          knowledge_revealed INTEGER DEFAULT 0
         )
       `);
 
-      // Check for missing columns and handle migration if needed
+      // Add new columns if they don't exist (for existing databases)
       const tableInfo = await this.db.getAllAsync<any>(
         "PRAGMA table_info(sparks);"
       );
       const columnNames = tableInfo.map((col) => col.name);
 
+      // Add knowledge column if it doesn't exist
+      if (!columnNames.includes('knowledge')) {
+        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN knowledge TEXT;`);
+      }
+
+      // Add fun_fact column if it doesn't exist
+      if (!columnNames.includes('fun_fact')) {
+        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN fun_fact TEXT;`);
+      }
+
+      // Add application column if it doesn't exist
+      if (!columnNames.includes('application')) {
+        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN application TEXT;`);
+      }
+
+      // Add difficulty column if it doesn't exist
+      if (!columnNames.includes('difficulty')) {
+        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN difficulty REAL DEFAULT 0.5;`);
+      }
+
+      // Add knowledge_revealed column if it doesn't exist
+      if (!columnNames.includes('knowledge_revealed')) {
+        await this.db.execAsync(`ALTER TABLE sparks ADD COLUMN knowledge_revealed INTEGER DEFAULT 0;`);
+      }
+
+      // Check for missing columns and handle migration if needed (keep legacy check for basic columns)
       const requiredColumns = [
         "id",
         "text",
@@ -188,14 +219,14 @@ class SQLiteService {
         "viewed",
         "saved",
       ];
-      const missingColumns = requiredColumns.filter(
+      const missingBasicColumns = requiredColumns.filter(
         (col) => !columnNames.includes(col)
       );
 
-      if (missingColumns.length > 0) {
+      if (missingBasicColumns.length > 0) {
         console.log(
-          `[SQLite] Missing columns in sparks table:`,
-          missingColumns
+          `[SQLite] Missing basic columns in sparks table:`,
+          missingBasicColumns
         );
 
         const existingSparks = await this.db.getAllAsync<any>(

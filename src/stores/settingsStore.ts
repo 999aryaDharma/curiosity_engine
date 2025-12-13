@@ -77,9 +77,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     get().updateSettings({ defaultSparkMode: mode });
   },
 
-  setChaosLevel: (level: number) => {
+  setDifficultyLevel: (level: number) => {
     const clamped = Math.max(0, Math.min(1, level));
-    get().updateSettings({ chaosLevel: clamped });
+    get().updateSettings({ difficultyLevel: clamped });
   },
 
   setMaxDeepDiveLayers: (layers: number) => {

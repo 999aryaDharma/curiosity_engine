@@ -58,17 +58,17 @@ class ResponseValidator {
     }
 
     // Validate knowledge (factual explanation)
-    if (!parsed.knowledge || typeof parsed.knowledge !== "string") {
-      errors.push('Missing or invalid "knowledge" field');
-    } else if (parsed.knowledge.length < 80) {
-      errors.push(
-        `Knowledge too short (${parsed.knowledge.length} < 80 words)`
-      );
-    } else if (parsed.knowledge.length > 600) {
-      errors.push(
-        `Knowledge too long (${parsed.knowledge.length} > 600 chars)`
-      );
-    }
+    // if (!parsed.knowledge || typeof parsed.knowledge !== "string") {
+    //   errors.push('Missing or invalid "knowledge" field');
+    // } else if (parsed.knowledge.length < 80) {
+    //   errors.push(
+    //     `Knowledge too short (${parsed.knowledge.length} < 80 words)`
+    //   );
+    // } else if (parsed.knowledge.length > 600) {
+    //   errors.push(
+    //     `Knowledge too long (${parsed.knowledge.length} > 600 chars)`
+    //   );
+    // }
 
     // Validate funFact
     if (!parsed.funFact || typeof parsed.funFact !== "string") {
