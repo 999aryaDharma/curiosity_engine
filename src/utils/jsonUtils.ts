@@ -34,12 +34,14 @@ export const safeJSONParse = <T = any>(
 
     // If fallback is an array, ensure result is also an array
     if (Array.isArray(fallback)) {
-      return Array.isArray(parsed) ? parsed as T : fallback;
+      return Array.isArray(parsed) ? (parsed as T) : fallback;
     }
 
     // If fallback is an object, ensure result is also an object
     if (typeof fallback === "object" && fallback !== null && parsed !== null) {
-      return (typeof parsed === "object" && !Array.isArray(parsed)) ? parsed as T : fallback;
+      return typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as T)
+        : fallback;
     }
 
     return parsed as T;
