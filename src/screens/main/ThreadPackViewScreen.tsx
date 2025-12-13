@@ -258,9 +258,11 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
             </Card>
 
             <View style={styles.packContainer}>
-              {allSparks.map((spark, index) =>
-                renderSparkCard(spark, index, index === allSparks.length - 1)
-              )}
+              {allSparks && Array.isArray(allSparks) ?
+                allSparks.map((spark, index) =>
+                  renderSparkCard(spark, index, index === allSparks.length - 1)
+                ) : null
+              }
             </View>
 
             <View style={styles.bottomActions}>

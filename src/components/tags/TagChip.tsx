@@ -1,4 +1,4 @@
-// src/components/tags/TagChip.tsx
+// src/components/tags/TagChip.tsx - FRESH ROUNDED CHIPS
 
 import React from "react";
 import {
@@ -9,23 +9,26 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   COLORS,
   SHADOWS,
   SPACING,
   BORDER_RADIUS,
   FONT_SIZES,
+  FONT_WEIGHTS,
+  ANIMATION,
 } from "@constants/colors";
+
+type TagColor = "mint" | "coral" | "sunny" | "sky" | "rose" | "neutral";
+type TagSize = "small" | "medium" | "large";
 
 interface TagChipProps {
   label: string;
   selected?: boolean;
   onPress?: () => void;
   onRemove?: () => void;
-  color?: string;
-  size?: "small" | "medium" | "large";
-  variant?: "default" | "gradient" | "outlined";
+  color?: TagColor;
+  size?: TagSize;
   animated?: boolean;
   style?: ViewStyle;
 }
@@ -35,60 +38,54 @@ export const TagChip: React.FC<TagChipProps> = ({
   selected = false,
   onPress,
   onRemove,
-  color,
+  color = "mint",
   size = "medium",
-  variant = "default",
   animated = true,
   style,
 }) => {
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
-  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const glowAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (selected && animated) {
-      // Playful bounce when selected
+      // Playful pop animation when selected
       Animated.sequence([
         Animated.spring(scaleAnim, {
-          toValue: 1.1,
+          toValue: 1.08,
           useNativeDriver: true,
           speed: 50,
-          bounciness: 15,
+          bounciness: 20,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           useNativeDriver: true,
           speed: 50,
-          bounciness: 10,
+          bounciness: 12,
         }),
       ]).start();
 
-      // Subtle rotation
-      Animated.sequence([
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: -1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      // Glow effect
+      Animated.timing(glowAnim, {
+        toValue: 1,
+        duration: ANIMATION.normal,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(glowAnim, {
+        toValue: 0,
+        duration: ANIMATION.normal,
+        useNativeDriver: true,
+      }).start();
     }
   }, [selected]);
 
   const handlePressIn = () => {
     if (!animated) return;
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.94,
       useNativeDriver: true,
       speed: 50,
+      bounciness: 0,
     }).start();
   };
 
@@ -98,8 +95,49 @@ export const TagChip: React.FC<TagChipProps> = ({
       toValue: 1,
       useNativeDriver: true,
       speed: 50,
-      bounciness: 8,
+      bounciness: 10,
     }).start();
+  };
+
+  const getColorPalette = () => {
+    switch (color) {
+      case "mint":
+        return {
+          main: COLORS.primary.main,
+          light: COLORS.primary.light,
+          lighter: COLORS.primary.lighter,
+        };
+      case "coral":
+        return {
+          main: COLORS.secondary.main,
+          light: COLORS.secondary.light,
+          lighter: COLORS.secondary.lighter,
+        };
+      case "sunny":
+        return {
+          main: COLORS.accent.main,
+          light: COLORS.accent.light,
+          lighter: COLORS.accent.lighter,
+        };
+      case "sky":
+        return {
+          main: COLORS.info.main,
+          light: COLORS.info.light,
+          lighter: COLORS.info.lighter,
+        };
+      case "rose":
+        return {
+          main: COLORS.rose.main,
+          light: COLORS.rose.light,
+          lighter: COLORS.rose.lighter,
+        };
+      default:
+        return {
+          main: COLORS.neutral.gray600,
+          light: COLORS.neutral.gray50,
+          lighter: COLORS.neutral.gray100,
+        };
+    }
   };
 
   const getSizeStyle = () => {
@@ -108,19 +146,22 @@ export const TagChip: React.FC<TagChipProps> = ({
         return {
           paddingVertical: SPACING.xs,
           paddingHorizontal: SPACING.sm,
-          borderRadius: BORDER_RADIUS.sm,
+          borderRadius: BORDER_RADIUS.full,
+          minHeight: 28,
         };
       case "large":
         return {
           paddingVertical: SPACING.md,
           paddingHorizontal: SPACING.lg,
-          borderRadius: BORDER_RADIUS.lg,
+          borderRadius: BORDER_RADIUS.full,
+          minHeight: 44,
         };
-      default:
+      default: // medium
         return {
           paddingVertical: SPACING.sm,
-          paddingHorizontal: SPACING.md,
-          borderRadius: BORDER_RADIUS.md,
+          paddingHorizontal: SPACING.base,
+          borderRadius: BORDER_RADIUS.full,
+          minHeight: 36,
         };
     }
   };
@@ -130,127 +171,82 @@ export const TagChip: React.FC<TagChipProps> = ({
       case "small":
         return FONT_SIZES.xs;
       case "large":
-        return FONT_SIZES.md;
+        return FONT_SIZES.base;
       default:
         return FONT_SIZES.sm;
     }
   };
 
-  const getChipStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      flexDirection: "row",
-      alignItems: "center",
-      ...getSizeStyle(),
-    };
+  const colorPalette = getColorPalette();
 
-    if (variant === "gradient") {
-      return {
-        ...baseStyle,
-        overflow: "hidden",
-        ...SHADOWS.small,
-      };
-    }
-
-    if (variant === "outlined") {
-      return {
-        ...baseStyle,
-        backgroundColor: "transparent",
-        borderWidth: 2,
-        borderColor: selected
-          ? color || COLORS.primary.main
-          : COLORS.neutral.gray300,
-      };
-    }
-
-    // Default variant
-    return {
-      ...baseStyle,
-      backgroundColor: selected
-        ? color || COLORS.primary.main
-        : COLORS.neutral.gray100,
-      ...SHADOWS.small,
-    };
+  const chipStyle: ViewStyle = {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    ...getSizeStyle(),
+    backgroundColor: selected ? colorPalette.main : colorPalette.light,
+    borderWidth: selected ? 0 : 1.5,
+    borderColor: selected ? "transparent" : colorPalette.lighter,
   };
 
-  const textColor =
-    variant === "outlined"
-      ? selected
-        ? color || COLORS.primary.main
-        : COLORS.neutral.gray600
-      : selected
-      ? COLORS.neutral.white
-      : COLORS.neutral.gray700;
-
-  const rotate = rotateAnim.interpolate({
-    inputRange: [-1, 1],
-    outputRange: ["-5deg", "5deg"],
-  });
-
-  const renderContent = () => (
-    <View style={[styles.contentContainer, getSizeStyle()]}>
-      <Text
-        style={[
-          styles.label,
-          {
-            color: textColor,
-            fontSize: getTextSize(),
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-
-      {onRemove && selected && (
-        <TouchableOpacity
-          onPress={onRemove}
-          style={styles.removeButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={[styles.removeIcon, { color: textColor }]}>×</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  const animatedStyle = {
-    transform: [{ scale: scaleAnim }, { rotate }],
-  };
-
-  if (variant === "gradient" && selected) {
-    return (
-      <Animated.View style={animatedStyle}>
-        <TouchableOpacity
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={0.9}
-          disabled={!onPress}
-        >
-          <LinearGradient
-            colors={COLORS.gradients.twilight as [string, string, ...string[]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[getChipStyle(), style]}
-          >
-            {renderContent()}
-          </LinearGradient>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }
+  const textColor = selected ? COLORS.neutral.white : colorPalette.main;
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View
+      style={[
+        {
+          transform: [{ scale: scaleAnim }],
+        },
+        selected && {
+          shadowColor: colorPalette.main,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: glowAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 0.3],
+          }),
+          shadowRadius: 12,
+          elevation: glowAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 6],
+          }),
+        },
+      ]}
+    >
       <TouchableOpacity
-        style={[getChipStyle(), style]}
+        style={[chipStyle, style]}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={0.8}
+        activeOpacity={1}
         disabled={!onPress}
       >
-        {renderContent()}
+        <View style={styles.contentContainer}>
+          <Text
+            style={[
+              styles.label,
+              {
+                color: textColor,
+                fontSize: getTextSize(),
+                fontWeight: selected
+                  ? FONT_WEIGHTS.semibold
+                  : FONT_WEIGHTS.medium,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+
+          {onRemove && selected && (
+            <TouchableOpacity
+              onPress={onRemove}
+              style={styles.removeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={[styles.removeIcon, { color: textColor }]}>×</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -260,20 +256,24 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   label: {
-    fontWeight: "600",
+    // Font properties set dynamically
   },
   removeButton: {
     marginLeft: SPACING.xs,
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
+    borderRadius: 9,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   removeIcon: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: FONT_WEIGHTS.bold,
+    lineHeight: 16,
   },
 });
 

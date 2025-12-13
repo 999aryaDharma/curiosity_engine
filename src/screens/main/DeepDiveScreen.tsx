@@ -291,7 +291,7 @@ const SeedSelectionView: React.FC<{
     </View>
 
     <Text style={styles.sectionTitle}>Recent Sparks</Text>
-    {recentSparks.length === 0 ? (
+    {(!recentSparks || recentSparks.length === 0) ? (
       <Card variant="outlined" style={styles.emptyCard}>
         <Text style={styles.emptyText}>
           No sparks yet. Generate a Quick Spark first!
@@ -413,17 +413,19 @@ const LayerView: React.FC<{
 
         {/* Questions */}
         <Text style={styles.layerSectionTitle}>❓ Questions</Text>
-        {currentLayer.questions.map((q, i) => (
-          <View key={i} style={styles.questionContainer}>
-            <Text style={styles.questionText}>{q}</Text>
-            <TouchableOpacity
-              style={styles.branchButton}
-              onPress={() => onBranchIdea(currentLayer.layer, i)}
-            >
-              <Text style={styles.branchButtonText}>Branch →</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+        {currentLayer.questions && Array.isArray(currentLayer.questions) ?
+          currentLayer.questions.map((q, i) => (
+            <View key={i} style={styles.questionContainer}>
+              <Text style={styles.questionText}>{q}</Text>
+              <TouchableOpacity
+                style={styles.branchButton}
+                onPress={() => onBranchIdea(currentLayer.layer, i)}
+              >
+                <Text style={styles.branchButtonText}>Branch →</Text>
+              </TouchableOpacity>
+            </View>
+          )) : null
+        }
 
         {/* Analogy */}
         {currentLayer.analogy && (
@@ -501,11 +503,13 @@ const SynthesisView: React.FC<{
 
     <Card variant="outlined" style={styles.nextStepsCard}>
       <Text style={styles.nextStepsTitle}>🚀 Where to Go Next</Text>
-      {synthesis.nextSteps.map((step: string, i: number) => (
-        <Text key={i} style={styles.nextStepItem}>
-          {i + 1}. {step}
-        </Text>
-      ))}
+      {synthesis.nextSteps && Array.isArray(synthesis.nextSteps) ?
+        synthesis.nextSteps.map((step: string, i: number) => (
+          <Text key={i} style={styles.nextStepItem}>
+            {i + 1}. {step}
+          </Text>
+        )) : null
+      }
     </Card>
 
     <Button

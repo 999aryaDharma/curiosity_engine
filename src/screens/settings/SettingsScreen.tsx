@@ -1,4 +1,4 @@
-// src/screens/settings/SettingsScreen.tsx
+// src/screens/settings/SettingsScreen.tsx - FRESH SETTINGS
 
 import React, { useState } from "react";
 import {
@@ -11,13 +11,19 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSettingsStore } from "@stores/settingsStore";
 import { useThreadStore } from "@stores/threadStore";
 import notificationService from "@/services/notifications/notificationService";
-import Card from "@components/common/Card";
+import { SoftCard } from "@components/common/Card";
 import Button from "@components/common/Button";
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  ANIMATION,
+} from "@constants/colors";
 import { APP_CONFIG } from "@constants/config";
 import tagEngine from "@services/tag-engine/tagEngine";
 
@@ -33,7 +39,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setTheme,
     setLanguage,
     setNotifications,
-    setChaosLevel,
+    setDifficultyLevel,
     setMaxDeepDiveLayers,
     resetSettings,
   } = useSettingsStore();
@@ -95,21 +101,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const handleTestNotification = async () => {
-    await notificationService.sendTestNotification();
-    Alert.alert("Test Sent", "You should receive a notification in 2 seconds.");
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>Settings ⚙</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -117,9 +120,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.sectionTitle}>Appearance</Text>
+        {/* Preferences Section */}
+        <Text style={styles.sectionTitle}>PREFERENCES</Text>
 
-        <Card variant="elevated" style={styles.settingsCard}>
+        <SoftCard style={styles.settingsCard}>
+          <SettingRow
+            icon="🔔"
+            title="Notifications"
+            subtitle="Daily reminders & updates"
+            rightComponent={
+              <Switch
+                value={settings.notificationsEnabled}
+                onValueChange={handleToggleNotifications}
+                trackColor={{
+                  false: COLORS.neutral.gray300,
+                  true: COLORS.primary.lighter,
+                }}
+                thumbColor={
+                  settings.notificationsEnabled
+                    ? COLORS.primary.main
+                    : COLORS.neutral.white
+                }
+                ios_backgroundColor={COLORS.neutral.gray300}
+              />
+            }
+          />
+
+          <Divider />
+
           <SettingRow
             icon="🎨"
             title="Theme"
@@ -150,32 +178,31 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             }}
             showChevron
           />
-        </Card>
+        </SoftCard>
 
-        <Text style={styles.sectionTitle}>Spark Generation</Text>
+        {/* Spark Settings Section */}
+        <Text style={styles.sectionTitle}>SPARK SETTINGS</Text>
 
-        <Card variant="elevated" style={styles.settingsCard}>
+        <SoftCard style={styles.settingsCard}>
           <View style={styles.sliderRow}>
-            <View>
-              <Text style={styles.settingTitle}>Chaos Level</Text>
+            <View style={styles.sliderIconContainer}>
+              <Text style={styles.sliderIcon}>🎚</Text>
+            </View>
+            <View style={styles.sliderTextContainer}>
+              <Text style={styles.settingTitle}>Difficulty Level</Text>
               <Text style={styles.settingSubtitle}>
-                {Math.round(settings.chaosLevel * 100)}% -{" "}
-                {getChaosLabel(settings.chaosLevel)}
+                {Math.round(settings.difficultyLevel * 100)}% -{" "}
+                {getDifficultyLabel(settings.difficultyLevel)}
               </Text>
             </View>
           </View>
 
           <View style={styles.sliderContainer}>
             <View style={styles.sliderTrack}>
-              <LinearGradient
-                colors={
-                  COLORS.gradients.twilight as [string, string, ...string[]]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+              <View
                 style={[
                   styles.sliderFill,
-                  { width: `${settings.chaosLevel * 100}%` },
+                  { width: `${settings.difficultyLevel * 100}%` },
                 ]}
               />
             </View>
@@ -183,7 +210,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <TouchableOpacity
                 style={styles.sliderButton}
                 onPress={() =>
-                  setChaosLevel(Math.max(0, settings.chaosLevel - 0.1))
+                  setDifficultyLevel(
+                    Math.max(0, settings.difficultyLevel - 0.1)
+                  )
                 }
               >
                 <Text style={styles.sliderButtonText}>−</Text>
@@ -191,7 +220,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <TouchableOpacity
                 style={styles.sliderButton}
                 onPress={() =>
-                  setChaosLevel(Math.min(1, settings.chaosLevel + 0.1))
+                  setDifficultyLevel(
+                    Math.min(1, settings.difficultyLevel + 0.1)
+                  )
                 }
               >
                 <Text style={styles.sliderButtonText}>+</Text>
@@ -202,7 +233,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <Divider />
 
           <View style={styles.sliderRow}>
-            <View>
+            <View style={styles.sliderIconContainer}>
+              <Text style={styles.sliderIcon}>🌊</Text>
+            </View>
+            <View style={styles.sliderTextContainer}>
               <Text style={styles.settingTitle}>Deep Dive Layers</Text>
               <Text style={styles.settingSubtitle}>
                 {settings.maxDeepDiveLayers} layers
@@ -233,112 +267,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <Text style={styles.sliderButtonText}>+</Text>
             </TouchableOpacity>
           </View>
-        </Card>
+        </SoftCard>
 
-        <Text style={styles.sectionTitle}>Notifications</Text>
+        {/* About Section */}
+        <Text style={styles.sectionTitle}>ABOUT</Text>
 
-        <Card variant="elevated" style={styles.settingsCard}>
-          <SettingRow
-            icon="🔔"
-            title="Daily Reminders"
-            subtitle="Get reminded to explore daily"
-            rightComponent={
-              <Switch
-                value={settings.notificationsEnabled}
-                onValueChange={handleToggleNotifications}
-                trackColor={{
-                  false: COLORS.neutral.gray300,
-                  true: COLORS.primary.light,
-                }}
-                thumbColor={
-                  settings.notificationsEnabled
-                    ? COLORS.primary.main
-                    : COLORS.neutral.gray400
-                }
-              />
-            }
-          />
-
-          {settings.notificationsEnabled && (
-            <>
-              <Divider />
-              <SettingRow
-                icon="🧪"
-                title="Test Notification"
-                subtitle="Send a test notification"
-                onPress={handleTestNotification}
-                showChevron
-              />
-            </>
-          )}
-        </Card>
-
-        <Text style={styles.sectionTitle}>Data Management</Text>
-
-        <Card variant="elevated" style={styles.settingsCard}>
-          <SettingRow
-            icon="🏷️"
-            title="Manage Tags"
-            subtitle="Add or remove tags"
-            onPress={() => navigation.navigate("TagManagement")}
-            showChevron
-          />
-
-          <Divider />
-
-          <SettingRow
-            icon="🔄"
-            title="Reset Tag Usage"
-            subtitle="Clear all tag history"
-            onPress={() => {
-              Alert.alert(
-                "Reset Tag Usage",
-                "This will reset all tag usage statistics.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Reset",
-                    onPress: async () => {
-                      await tagEngine.resetTagUsage();
-                      Alert.alert("Success", "Tag usage reset");
-                    },
-                  },
-                ]
-              );
-            }}
-            showChevron
-          />
-
-          <Divider />
-
-          <SettingRow
-            icon="🗑️"
-            title="Reset Thread Graph"
-            subtitle="Clear concept map"
-            onPress={() => {
-              Alert.alert(
-                "Reset Thread Graph",
-                "This will delete all concepts and connections.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Reset",
-                    style: "destructive",
-                    onPress: async () => {
-                      await resetGraph();
-                      Alert.alert("Success", "Thread graph reset");
-                    },
-                  },
-                ]
-              );
-            }}
-            showChevron
-          />
-        </Card>
-
-        <Text style={styles.sectionTitle}>About</Text>
-
-        <Card variant="elevated" style={styles.settingsCard}>
+        <SoftCard style={styles.settingsCard}>
           <SettingRow
             icon="📱"
             title="App Version"
@@ -348,7 +282,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <Divider />
 
           <SettingRow
-            icon="ℹ️"
+            icon="ℹ"
             title="About Curiosity Engine"
             subtitle="Learn more"
             onPress={() => {
@@ -360,14 +294,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             }}
             showChevron
           />
-        </Card>
+        </SoftCard>
 
-        <Text style={styles.sectionTitle}>Danger Zone</Text>
+        {/* Danger Zone Section */}
+        <Text style={styles.sectionTitle}>DANGER ZONE</Text>
 
-        <Card
-          variant="outlined"
-          style={{ ...styles.settingsCard, ...styles.dangerCard }}
-        >
+        <SoftCard style={{
+          ...styles.settingsCard,
+          ...styles.dangerCard,
+        }}>
           <Button
             title="Reset All Settings"
             onPress={handleResetSettings}
@@ -385,17 +320,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             variant="outline"
             size="medium"
             fullWidth
-            style={styles.dangerButton}
-            textStyle={{ color: COLORS.error.main }}
+            style={{
+              ...styles.dangerButton,
+              ...styles.dangerButtonRed,
+            }}
           />
-        </Card>
+        </SoftCard>
 
-        <View style={{ height: SPACING.xxxl }} />
+        <View style={{ height: SPACING.huge }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+// Helper Components
 const SettingRow: React.FC<{
   icon: string;
   title: string;
@@ -411,7 +349,9 @@ const SettingRow: React.FC<{
     activeOpacity={onPress ? 0.7 : 1}
   >
     <View style={styles.settingLeft}>
-      <Text style={styles.settingIcon}>{icon}</Text>
+      <View style={styles.iconContainer}>
+        <Text style={styles.icon}>{icon}</Text>
+      </View>
       <View style={styles.settingTexts}>
         <Text style={styles.settingTitle}>{title}</Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
@@ -423,28 +363,24 @@ const SettingRow: React.FC<{
 
 const Divider = () => <View style={styles.divider} />;
 
-const getChaosLabel = (chaos: number): string => {
-  if (chaos < 0.3) return "Focused";
-  if (chaos < 0.6) return "Balanced";
-  if (chaos < 0.8) return "Creative";
+const getDifficultyLabel = (difficulty: number): string => {
+  if (difficulty < 0.3) return "Focused";
+  if (difficulty < 0.6) return "Balanced";
+  if (difficulty < 0.8) return "Creative";
   return "Wild";
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral.gray50,
+    backgroundColor: COLORS.neutral.offWhite,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-    backgroundColor: COLORS.neutral.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.neutral.gray200,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
   },
   backButton: {
     width: 40,
@@ -458,18 +394,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.md,
   },
   sectionTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: "700",
-    color: COLORS.neutral.gray600,
-    textTransform: "uppercase",
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.neutral.gray500,
     letterSpacing: 0.5,
     marginBottom: SPACING.sm,
     marginTop: SPACING.lg,
@@ -477,28 +412,37 @@ const styles = StyleSheet.create({
   settingsCard: {
     marginBottom: SPACING.md,
     padding: 0,
+    overflow: "hidden",
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: SPACING.md,
+    padding: SPACING.base,
   },
   settingLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  settingIcon: {
-    fontSize: 24,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.xl,
+    backgroundColor: COLORS.neutral.white,
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: SPACING.md,
+  },
+  icon: {
+    fontSize: 22,
   },
   settingTexts: {
     flex: 1,
   },
   settingTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: "600",
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.neutral.black,
     marginBottom: SPACING.xs / 2,
   },
@@ -514,25 +458,43 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: COLORS.neutral.gray200,
-    marginLeft: SPACING.md + 24 + SPACING.md,
+    marginLeft: SPACING.base + 44 + SPACING.md,
   },
   sliderRow: {
-    padding: SPACING.md,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.base,
     paddingBottom: SPACING.sm,
   },
+  sliderIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.xl,
+    backgroundColor: COLORS.neutral.white,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
+  },
+  sliderIcon: {
+    fontSize: 22,
+  },
+  sliderTextContainer: {
+    flex: 1,
+  },
   sliderContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    paddingBottom: SPACING.base,
   },
   sliderTrack: {
     height: 8,
     backgroundColor: COLORS.neutral.gray200,
     borderRadius: BORDER_RADIUS.full,
     overflow: "hidden",
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   sliderFill: {
     height: "100%",
+    backgroundColor: COLORS.primary.main,
     borderRadius: BORDER_RADIUS.full,
   },
   sliderButtons: {
@@ -541,9 +503,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sliderButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.full,
     backgroundColor: COLORS.primary.main,
     justifyContent: "center",
     alignItems: "center",
@@ -552,22 +514,25 @@ const styles = StyleSheet.create({
   sliderButtonText: {
     fontSize: 24,
     color: COLORS.neutral.white,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
+    lineHeight: 24,
   },
   layerCount: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.primary.main,
     minWidth: 40,
     textAlign: "center",
   },
   dangerCard: {
-    borderColor: COLORS.error.main,
-    borderWidth: 1,
-    padding: SPACING.md,
+    padding: SPACING.base,
+    backgroundColor: COLORS.error.light,
   },
   dangerButton: {
     borderColor: COLORS.error.main,
+  },
+  dangerButtonRed: {
+    borderColor: COLORS.error.dark,
   },
 });
 

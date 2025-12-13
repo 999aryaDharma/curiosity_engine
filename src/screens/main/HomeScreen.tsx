@@ -1,4 +1,4 @@
-// src/screens/main/HomeScreen.tsx
+// src/screens/main/HomeScreen.tsx - FRESH MINT HOME
 
 import React, { useEffect, useState } from "react";
 import {
@@ -11,22 +11,22 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
 import notificationService from "@/services/notifications/notificationService";
 import TagChip from "@components/tags/TagChip";
 import SparkCard from "@components/spark/SparkCard";
 import Button from "@components/common/Button";
-import Card from "@components/common/Card";
+import { ModeCard } from "@components/common/Card";
 import {
   COLORS,
   SPACING,
   FONT_SIZES,
+  FONT_WEIGHTS,
   BORDER_RADIUS,
   SHADOWS,
+  ANIMATION,
 } from "@constants/colors";
-import { formatDate } from "@utils/dateUtils";
 
 interface HomeScreenProps {
   navigation: any;
@@ -35,7 +35,6 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const {
     dailyTags,
-    dailySelection,
     loadDailyTags,
     generateDailyTags,
     isLoading: tagsLoading,
@@ -45,21 +44,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(30)).current;
+  const slideAnim = React.useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     loadData();
 
+    // Entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 600,
+        duration: ANIMATION.slow,
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
-        speed: 12,
-        bounciness: 6,
+        speed: 10,
+        bounciness: 8,
         useNativeDriver: true,
       }),
     ]).start();
@@ -78,6 +78,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const handleShuffleTags = async () => {
+    // Animate shuffle
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 0.5,
+        duration: ANIMATION.fast,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: ANIMATION.normal,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     await generateDailyTags(true);
   };
 
@@ -95,21 +109,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
-  const getModeGradient = (mode: number) => {
-    switch (mode) {
-      case 1:
-        return COLORS.gradients.forest;
-      case 2:
-        return COLORS.gradients.twilight;
-      case 3:
-        return COLORS.gradients.candy;
-      default:
-        return COLORS.gradients.ocean;
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -122,6 +123,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Header */}
         <Animated.View
           style={[
             styles.header,
@@ -132,19 +134,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         >
           <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.greeting}>Good day!</Text>
-              <Text style={styles.date}>{formatDate(Date.now(), "long")}</Text>
-            </View>
+            <Text style={styles.greeting}>Curiosity Engine</Text>
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => navigation.navigate("Settings")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.settingsIcon}>⚙️</Text>
+              <Text style={styles.settingsIcon}>⚙</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
+        {/* Today's Themes */}
         <Animated.View
           style={[
             styles.section,
@@ -155,32 +156,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         >
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Tags</Text>
-            <TouchableOpacity onPress={handleShuffleTags}>
+            <Text style={styles.sectionTitle}>Today's Themes</Text>
+            <TouchableOpacity
+              onPress={handleShuffleTags}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Text style={styles.shuffleButton}>Shuffle</Text>
             </TouchableOpacity>
           </View>
 
-          <Card variant="elevated" style={styles.tagsCard}>
-            <View style={styles.tagsContainer}>
-              {dailyTags.length > 0 ? (
-                dailyTags.map((tag) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagsScroll}
+          >
+            {dailyTags && Array.isArray(dailyTags) && dailyTags.length > 0 ? (
+              dailyTags.map((tag, index) => (
+                <Animated.View
+                  key={tag.id}
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateX: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [50 * (index + 1), 0],
+                        }),
+                      },
+                    ],
+                  }}
+                >
                   <TagChip
-                    key={tag.id}
                     label={tag.name}
                     selected
-                    variant="gradient"
+                    color={
+                      ["mint", "coral", "sunny", "sky", "rose"][
+                        index % 5
+                      ] as any
+                    }
                     size="medium"
                     style={styles.tag}
                   />
-                ))
-              ) : (
-                <Text style={styles.emptyText}>Loading tags...</Text>
-              )}
-            </View>
-          </Card>
+                </Animated.View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Loading themes...</Text>
+            )}
+          </ScrollView>
         </Animated.View>
 
+        {/* Explore Modes */}
         <Animated.View
           style={[
             styles.section,
@@ -189,65 +214,98 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.sectionTitle}>Choose Your Journey</Text>
+          <Text style={styles.sectionTitle}>Explore</Text>
 
-          <View style={styles.modesGrid}>
+          {/* Quick Spark Card */}
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                },
+              ],
+            }}
+          >
             <TouchableOpacity
-              style={styles.modeCard}
               onPress={() => handleModePress(1)}
               activeOpacity={0.9}
             >
-              <LinearGradient
-                colors={getModeGradient(1) as [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.modeGradient}
-              >
-                <Text style={styles.modeEmoji}>⚡</Text>
+              <ModeCard color="mint" style={styles.modeCard}>
+                <View style={styles.modeIcon}>
+                  <Text style={styles.modeIconText}>⚡</Text>
+                </View>
                 <Text style={styles.modeTitle}>Quick Spark</Text>
-                <Text style={styles.modeDescription}>Fast curiosity boost</Text>
-              </LinearGradient>
+                <Text style={styles.modeDescription}>
+                  Get instant ideas and thought starters
+                </Text>
+              </ModeCard>
             </TouchableOpacity>
+          </Animated.View>
 
+          {/* Deep Dive Card */}
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.85, 1],
+                  }),
+                },
+              ],
+            }}
+          >
             <TouchableOpacity
-              style={styles.modeCard}
               onPress={() => handleModePress(2)}
               activeOpacity={0.9}
             >
-              <LinearGradient
-                colors={getModeGradient(2) as [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.modeGradient}
-              >
-                <Text style={styles.modeEmoji}>🌊</Text>
+              <ModeCard color="coral" style={styles.modeCard}>
+                <View style={styles.modeIcon}>
+                  <Text style={styles.modeIconText}>🌊</Text>
+                </View>
                 <Text style={styles.modeTitle}>Deep Dive</Text>
                 <Text style={styles.modeDescription}>
-                  Multi-layer exploration
+                  Explore topics layer by layer
                 </Text>
-              </LinearGradient>
+              </ModeCard>
             </TouchableOpacity>
+          </Animated.View>
 
+          {/* Thread Card */}
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  scale: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            }}
+          >
             <TouchableOpacity
-              style={styles.modeCard}
               onPress={() => handleModePress(3)}
               activeOpacity={0.9}
             >
-              <LinearGradient
-                colors={getModeGradient(3) as [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.modeGradient}
-              >
-                <Text style={styles.modeEmoji}>🧵</Text>
+              <ModeCard color="sky" style={styles.modeCard}>
+                <View style={styles.modeIcon}>
+                  <Text style={styles.modeIconText}>🧵</Text>
+                </View>
                 <Text style={styles.modeTitle}>Thread</Text>
-                <Text style={styles.modeDescription}>Connected concepts</Text>
-              </LinearGradient>
+                <Text style={styles.modeDescription}>
+                  Connect ideas and build knowledge
+                </Text>
+              </ModeCard>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </Animated.View>
 
-        {recentSparks.length > 0 && (
+        {/* Recent Sparks */}
+        {recentSparks && Array.isArray(recentSparks) && recentSparks.length > 0 && (
           <Animated.View
             style={[
               styles.section,
@@ -259,24 +317,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Sparks</Text>
               <TouchableOpacity onPress={() => navigation.navigate("History")}>
-                <Text style={styles.viewAllButton}>View All</Text>
+                <Text style={styles.viewAllButton}>See all</Text>
               </TouchableOpacity>
             </View>
 
-            {recentSparks.slice(0, 3).map((spark) => (
-              <SparkCard
+            {recentSparks.slice(0, 3).map((spark, index) => (
+              <Animated.View
                 key={spark.id}
-                spark={spark}
-                compact
-                onPress={() =>
-                  navigation.navigate("SparkDetail", { sparkId: spark.id })
-                }
-              />
+                style={{
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [30 * (index + 1), 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <SparkCard
+                  spark={spark}
+                  compact
+                  onPress={() =>
+                    navigation.navigate("SparkDetail", { sparkId: spark.id })
+                  }
+                />
+              </Animated.View>
             ))}
           </Animated.View>
         )}
 
-        <View style={{ height: SPACING.xxxl }} />
+        <View style={{ height: SPACING.huge }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -285,39 +357,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral.white,
+    backgroundColor: COLORS.neutral.offWhite,
   },
   scrollContent: {
-    paddingBottom: SPACING.xl,
+    paddingBottom: SPACING.xxl,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.base,
     marginBottom: SPACING.lg,
   },
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   greeting: {
-    fontSize: FONT_SIZES.xxxl,
-    fontWeight: "bold",
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
-    marginBottom: SPACING.xs,
-  },
-  date: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray500,
   },
   settingsButton: {
-    padding: SPACING.sm,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.neutral.white,
+    ...SHADOWS.soft,
   },
   settingsIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   section: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.base,
     marginBottom: SPACING.xl,
   },
   sectionHeader: {
@@ -328,70 +401,57 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
   },
   shuffleButton: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.primary.main,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   viewAllButton: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.primary.main,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
   },
-  tagsCard: {
-    padding: SPACING.md,
-  },
-  tagsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -SPACING.xs,
+  tagsScroll: {
+    paddingVertical: SPACING.xs,
   },
   tag: {
-    margin: SPACING.xs,
+    marginRight: SPACING.sm,
   },
   emptyText: {
     color: COLORS.neutral.gray500,
     fontSize: FONT_SIZES.sm,
-    textAlign: "center",
-    padding: SPACING.lg,
-  },
-  modesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -SPACING.xs,
   },
   modeCard: {
-    width: "48%",
-    margin: "1%",
+    marginBottom: SPACING.md,
+    padding: SPACING.lg,
+    minHeight: 140,
+  },
+  modeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: BORDER_RADIUS.xxl,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: SPACING.md,
   },
-  modeGradient: {
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    alignItems: "center",
-    minHeight: 140,
-    justifyContent: "center",
-    ...SHADOWS.medium,
-  },
-  modeEmoji: {
-    fontSize: 40,
-    marginBottom: SPACING.sm,
+  modeIconText: {
+    fontSize: 32,
   },
   modeTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "bold",
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.white,
     marginBottom: SPACING.xs,
-    textAlign: "center",
   },
   modeDescription: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.white,
     opacity: 0.9,
-    textAlign: "center",
+    lineHeight: FONT_SIZES.sm * 1.4,
   },
 });
 

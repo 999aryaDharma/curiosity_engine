@@ -1,164 +1,169 @@
-// src/constants/colors.ts
+// src/constants/colors.ts - FRESH MINT THEME
 
 export const COLORS = {
-  // Primary colors - Vibrant Purple/Blue
+  // Primary - Fresh Mint (Teal/Aqua)
   primary: {
-    main: "#8B5CF6", // Vivid purple
-    light: "#A78BFA",
-    dark: "#7C3AED",
+    main: "#2EAB89", // Fresh mint
+    light: "#E6F7F2", // Very light mint tint
+    lighter: "#C4EFE1", // Light mint
+    dark: "#1F8A6B", // Darker mint
+    glow: "#3DC9A5", // Lighter variant for glow
     contrast: "#FFFFFF",
   },
 
-  // Secondary colors - Cheerful Pink
+  // Secondary - Warm Coral
   secondary: {
-    main: "#F472B6", // Bright pink
-    light: "#FBCFE8",
-    dark: "#EC4899",
+    main: "#F08C5A", // Warm coral/orange
+    light: "#FFF3ED", // Very light coral tint
+    lighter: "#FFDCC8", // Light coral
+    dark: "#E8805C", // Darker coral
     contrast: "#FFFFFF",
   },
 
-  // Accent colors - Fun & Vibrant
+  // Accent - Sunny Yellow
   accent: {
-    yellow: "#FCD34D", // Sunny yellow
-    orange: "#FB923C", // Warm orange
-    green: "#34D399", // Fresh green
-    blue: "#60A5FA", // Sky blue
-    purple: "#C084FC", // Soft purple
+    main: "#FCCD52", // Bright sunny yellow
+    light: "#FFF8E1", // Very light yellow tint
+    lighter: "#FEE9B8", // Light yellow
+    dark: "#F0C04D", // Darker yellow
+    contrast: "#8B6914", // Dark text on yellow
   },
 
-  // Neutral colors - Soft & Clean
+  // Info - Sky Blue
+  info: {
+    main: "#47B8E0", // Sky blue
+    light: "#E3F5FC", // Very light blue tint
+    lighter: "#B8E5F7", // Light blue
+    dark: "#5BBCE0", // Darker blue
+    contrast: "#FFFFFF",
+  },
+
+  // Rose - Soft Pink
+  rose: {
+    main: "#F08C9E", // Soft pink/rose
+    light: "#FFF0F3", // Very light pink tint
+    lighter: "#FCCCD6", // Light pink
+    dark: "#E87D90", // Darker pink
+    contrast: "#FFFFFF",
+  },
+
+  // Neutral - Clean & Soft
   neutral: {
     white: "#FFFFFF",
-    black: "#1F2937",
-    gray50: "#FAFAFA",
-    gray100: "#F5F5F5",
-    gray200: "#E5E5E5",
-    gray300: "#D4D4D4",
-    gray400: "#A3A3A3",
-    gray500: "#737373",
-    gray600: "#525252",
-    gray700: "#404040",
-    gray800: "#262626",
-    gray900: "#171717",
+    offWhite: "#FAFAF8", // Warm off-white
+    black: "#2D3748", // Soft black (blue-gray)
+    gray50: "#F9FAFB",
+    gray100: "#F3F4F6",
+    gray200: "#E5E7EB",
+    gray300: "#D1D5DB",
+    gray400: "#9CA3AF",
+    gray500: "#6B7280",
+    gray600: "#4B5563",
+    gray700: "#374151",
+    gray800: "#1F2937",
+    gray900: "#111827",
   },
 
   // Status colors
   success: {
     main: "#10B981",
-    light: "#34D399",
+    light: "#D1FAE5",
     dark: "#059669",
-    background: "#D1FAE5",
   },
 
   error: {
     main: "#EF4444",
-    light: "#F87171",
+    light: "#FEE2E2",
     dark: "#DC2626",
-    background: "#FEE2E2",
   },
 
   warning: {
     main: "#F59E0B",
-    light: "#FBBF24",
+    light: "#FEF3C7",
     dark: "#D97706",
-    background: "#FEF3C7",
   },
 
-  info: {
-    main: "#3B82F6",
-    light: "#60A5FA",
-    dark: "#2563EB",
-    background: "#DBEAFE",
-  },
-
-  // Spark mode colors - Fun & Distinctive
+  // Spark mode colors - Updated
   sparkModes: {
-    quick: "#10B981", // Energetic green
-    deepDive: "#8B5CF6", // Deep purple
-    thread: "#F472B6", // Creative pink
+    quickSpark: "#2EAB89", // Fresh mint
+    deepDive: "#F08C5A", // Warm coral
+    thread: "#47B8E0", // Sky blue
   },
 
-  // Cluster colors - Playful palette
-  clusters: {
-    philosophy: "#A78BFA", // Thoughtful purple
-    science: "#60A5FA", // Discovery blue
-    arts: "#F472B6", // Creative pink
-    technology: "#34D399", // Modern green
-    psychology: "#FBBF24", // Warm yellow
-    society: "#FB923C", // Social orange
-    nature: "#10B981", // Natural green
-    history: "#F87171", // Heritage red
-    mathematics: "#818CF8", // Logical indigo
-    language: "#A3E635", // Expressive lime
-    economics: "#C084FC", // Strategic purple
-    health: "#2DD4BF", // Vital teal
-  },
-
-  // Gradient backgrounds - Cheerful combinations
+  // Gradients - Fresh & Vibrant
   gradients: {
-    sunrise: ["#FCD34D", "#FB923C", "#F472B6"],
-    ocean: ["#60A5FA", "#3B82F6", "#8B5CF6"],
-    forest: ["#34D399", "#10B981", "#059669"],
-    twilight: ["#C084FC", "#8B5CF6", "#7C3AED"],
-    candy: ["#F472B6", "#EC4899", "#DB2777"],
+    mint: ["#2EAB89", "#3DC9A5"], // Primary mint gradient
+    coral: ["#F08C5A", "#FFB088"], // Warm coral gradient
+    sunny: ["#FCCD52", "#FFE082"], // Sunny yellow gradient
+    sky: ["#47B8E0", "#6DD5FA"], // Sky blue gradient
+    rose: ["#F08C9E", "#FFA8B8"], // Soft pink gradient
+    dreamy: ["#A78BFA", "#6DD5FA"], // Purple to blue
+    background: ["#FAFAF8", "#F5F5F3"], // Subtle background gradient
   },
 };
 
+// Light Theme
 export const LIGHT_THEME = {
   background: {
     primary: "#FFFFFF",
-    secondary: "#FAFAFA",
-    tertiary: "#F5F5F5",
+    secondary: "#FAFAF8", // Warm off-white
+    tertiary: "#F9FAFB",
     elevated: "#FFFFFF",
-    gradient: "linear-gradient(135deg, #FAFAFA 0%, #F0F9FF 100%)",
+    gradient: "linear-gradient(180deg, #FAFAF8 0%, #F5F5F3 100%)",
+    card: "#FFFFFF",
   },
 
   text: {
-    primary: "#1F2937",
-    secondary: "#525252",
-    tertiary: "#737373",
-    disabled: "#A3A3A3",
+    primary: "#2D3748", // Soft black
+    secondary: "#4B5563", // Medium gray
+    tertiary: "#6B7280", // Light gray
+    disabled: "#9CA3AF",
     inverse: "#FFFFFF",
+    accent: "#2EAB89", // Mint for links/emphasis
   },
 
   border: {
-    primary: "#E5E5E5",
-    secondary: "#D4D4D4",
-    focus: "#8B5CF6",
+    primary: "#E5E7EB",
+    secondary: "#D1D5DB",
+    focus: "#2EAB89", // Mint focus ring
+    light: "#F3F4F6",
   },
 
   card: {
     background: "#FFFFFF",
-    border: "#E5E5E5",
-    shadow: "rgba(139, 92, 246, 0.1)", // Purple tint shadow
-    hover: "#FAFAFA",
+    border: "#E5E7EB",
+    shadow: "rgba(46, 171, 137, 0.08)", // Mint tinted shadow
+    hover: "#FAFAF8",
   },
 
   button: {
-    primary: "#8B5CF6",
-    primaryHover: "#7C3AED",
-    secondary: "#F5F5F5",
-    secondaryHover: "#E5E5E5",
-    disabled: "#D4D4D4",
+    primary: "#2EAB89",
+    primaryHover: "#1F8A6B",
+    secondary: "#F3F4F6",
+    secondaryHover: "#E5E7EB",
+    disabled: "#D1D5DB",
   },
 
   status: {
-    success: "#34D399",
-    error: "#F87171",
-    warning: "#FBBF24",
-    info: "#60A5FA",
+    success: "#10B981",
+    error: "#EF4444",
+    warning: "#F59E0B",
+    info: "#47B8E0",
   },
 
-  overlay: "rgba(0, 0, 0, 0.3)",
+  overlay: "rgba(0, 0, 0, 0.4)",
+  glass: "rgba(255, 255, 255, 0.8)", // For glassmorphism
 };
 
+// Dark Theme - Softer, easier on eyes
 export const DARK_THEME = {
   background: {
-    primary: "#1F2937",
-    secondary: "#111827",
+    primary: "#1A202C", // Deep blue-gray
+    secondary: "#2D3748", // Lighter blue-gray
     tertiary: "#374151",
-    elevated: "#1F2937",
-    gradient: "linear-gradient(135deg, #1F2937 0%, #111827 100%)",
+    elevated: "#2D3748",
+    gradient: "linear-gradient(180deg, #1A202C 0%, #0F1419 100%)",
+    card: "#2D3748",
   },
 
   text: {
@@ -166,140 +171,170 @@ export const DARK_THEME = {
     secondary: "#D1D5DB",
     tertiary: "#9CA3AF",
     disabled: "#6B7280",
-    inverse: "#111827",
+    inverse: "#1A202C",
+    accent: "#3DC9A5", // Brighter mint for dark mode
   },
 
   border: {
     primary: "#374151",
     secondary: "#4B5563",
-    focus: "#A78BFA",
+    focus: "#3DC9A5",
+    light: "#2D3748",
   },
 
   card: {
-    background: "#1F2937",
+    background: "#2D3748",
     border: "#374151",
-    shadow: "rgba(139, 92, 246, 0.2)", // Purple glow
+    shadow: "rgba(61, 201, 165, 0.15)", // Mint glow in dark
     hover: "#374151",
   },
 
   button: {
-    primary: "#A78BFA",
-    primaryHover: "#8B5CF6",
+    primary: "#3DC9A5",
+    primaryHover: "#2EAB89",
     secondary: "#374151",
     secondaryHover: "#4B5563",
     disabled: "#4B5563",
   },
 
   status: {
-    success: "#34D399",
-    error: "#F87171",
-    warning: "#FBBF24",
-    info: "#60A5FA",
+    success: "#10B981",
+    error: "#EF4444",
+    warning: "#F59E0B",
+    info: "#47B8E0",
   },
 
   overlay: "rgba(0, 0, 0, 0.6)",
+  glass: "rgba(45, 55, 72, 0.8)", // Dark glassmorphism
 };
 
+// Shadows with colored tints
 export const SHADOWS = {
-  small: {
-    shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 2 },
+  // Soft shadows for subtle elevation
+  soft: {
+    shadowColor: "#2EAB89",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 12,
     elevation: 2,
   },
 
-  medium: {
-    shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+  // Card shadows
+  card: {
+    shadowColor: "#2EAB89",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
     elevation: 4,
   },
 
-  large: {
-    shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
+  // Elevated shadows for floating elements
+  elevated: {
+    shadowColor: "#2EAB89",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 30,
     elevation: 8,
   },
 
-  xlarge: {
-    shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 12,
+  // Colored glows for special elements
+  glow: {
+    mint: {
+      shadowColor: "#2EAB89",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 6,
+    },
+    coral: {
+      shadowColor: "#F08C5A",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 6,
+    },
+    sunny: {
+      shadowColor: "#FCCD52",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 6,
+    },
   },
 
-  colored: {
-    purple: {
-      shadowColor: "#8B5CF6",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    pink: {
-      shadowColor: "#F472B6",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    green: {
-      shadowColor: "#34D399",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
-    },
+  // None
+  none: {
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
 };
 
+// Spacing - Generous & Breathable
 export const SPACING = {
   xs: 4,
   sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-  xxxl: 64,
+  md: 12,
+  base: 16, // Standard unit
+  lg: 20,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
+  huge: 64,
 };
 
+// Border Radius - Heavily Rounded
 export const BORDER_RADIUS = {
-  xs: 6,
-  sm: 10,
+  xs: 8,
+  sm: 12,
   md: 16,
   lg: 20,
-  xl: 28,
-  xxl: 36,
+  xl: 24,
+  xxl: 28,
+  xxxl: 32,
   full: 9999,
 };
 
+// Font Sizes
 export const FONT_SIZES = {
   xs: 12,
   sm: 14,
+  base: 16,
   md: 16,
   lg: 18,
   xl: 20,
   xxl: 24,
-  xxxl: 32,
-  display: 48,
+  xxxl: 28,
+  huge: 32,
+  display: 40,
 };
 
+// Font Weights
 export const FONT_WEIGHTS = {
   light: "300" as const,
   regular: "400" as const,
   medium: "500" as const,
   semibold: "600" as const,
   bold: "700" as const,
+  extrabold: "800" as const,
 };
 
+// Line Heights
 export const LINE_HEIGHTS = {
   tight: 1.2,
+  snug: 1.3,
   normal: 1.5,
-  relaxed: 1.75,
-  loose: 2,
+  relaxed: 1.6,
+  loose: 1.75,
+};
+
+// Animation Durations (ms)
+export const ANIMATION = {
+  fast: 150,
+  normal: 250,
+  medium: 350,
+  slow: 500,
+  verySlow: 700,
 };

@@ -386,7 +386,7 @@ class SparkGenerator {
       knowledge: row.knowledge || undefined,
       funFact: row.fun_fact || undefined,
       application: row.application || undefined,
-      difficulty: row.difficulty,
+      difficulty: row.difficulty !== undefined ? row.difficulty : 0.5,
       tags: safeJSONParse(row.tags, []),
       mode: row.mode,
       layers: row.layers ? safeJSONParse(row.layers, undefined) : undefined,
@@ -395,6 +395,7 @@ class SparkGenerator {
       createdAt: row.created_at,
       viewed: Boolean(row.viewed),
       saved: Boolean(row.saved),
+      knowledgeRevealed: Boolean(row.knowledge_revealed),
     };
   }
 

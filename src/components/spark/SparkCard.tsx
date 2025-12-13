@@ -1,4 +1,4 @@
-// src/components/spark/SparkCard.tsx
+// src/components/spark/SparkCard.tsx - FRESH SPARK CARDS
 
 import React from "react";
 import {
@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Spark, SparkMode } from "@type/spark.types";
 import {
   COLORS,
@@ -16,6 +15,8 @@ import {
   SPACING,
   BORDER_RADIUS,
   FONT_SIZES,
+  FONT_WEIGHTS,
+  ANIMATION,
 } from "@constants/colors";
 import { formatDate } from "@utils/dateUtils";
 
@@ -42,6 +43,7 @@ export const SparkCard: React.FC<SparkCardProps> = ({
       toValue: 0.98,
       useNativeDriver: true,
       speed: 50,
+      bounciness: 0,
     }).start();
   };
 
@@ -54,23 +56,39 @@ export const SparkCard: React.FC<SparkCardProps> = ({
     }).start();
   };
 
-  const getModeColor = (mode: SparkMode): string[] => {
+  const getModeColor = (mode: SparkMode) => {
     switch (mode) {
       case 1:
-        return COLORS.gradients.forest;
+        return {
+          color: COLORS.primary.main,
+          light: COLORS.primary.light,
+          gradient: COLORS.gradients.mint,
+        };
       case 2:
-        return COLORS.gradients.twilight;
+        return {
+          color: COLORS.secondary.main,
+          light: COLORS.secondary.light,
+          gradient: COLORS.gradients.coral,
+        };
       case 3:
-        return COLORS.gradients.candy;
+        return {
+          color: COLORS.info.main,
+          light: COLORS.info.light,
+          gradient: COLORS.gradients.sky,
+        };
       default:
-        return COLORS.gradients.ocean;
+        return {
+          color: COLORS.primary.main,
+          light: COLORS.primary.light,
+          gradient: COLORS.gradients.mint,
+        };
     }
   };
 
   const getModeLabel = (mode: SparkMode): string => {
     switch (mode) {
       case 1:
-        return "Quick Spark";
+        return "Quick";
       case 2:
         return "Deep Dive";
       case 3:
@@ -100,6 +118,7 @@ export const SparkCard: React.FC<SparkCardProps> = ({
 
   const displayText =
     compact && !isExpanded ? truncateText(spark.text) : spark.text;
+  const modeColors = getModeColor(spark.mode);
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -107,20 +126,19 @@ export const SparkCard: React.FC<SparkCardProps> = ({
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={0.9}
+        activeOpacity={1}
       >
         <View style={[styles.card, compact && styles.compactCard]}>
-          {/* Mode Badge with Gradient */}
+          {/* Mode Badge */}
           {showMode && (
-            <LinearGradient
-              colors={getModeColor(spark.mode) as [string, string, ...string[]]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.modeBadge}
+            <View
+              style={[styles.modeBadge, { backgroundColor: modeColors.light }]}
             >
               <Text style={styles.modeIcon}>{getModeIcon(spark.mode)}</Text>
-              <Text style={styles.modeLabel}>{getModeLabel(spark.mode)}</Text>
-            </LinearGradient>
+              <Text style={[styles.modeLabel, { color: modeColors.color }]}>
+                {getModeLabel(spark.mode)}
+              </Text>
+            </View>
           )}
 
           {/* Spark Text */}
@@ -132,31 +150,40 @@ export const SparkCard: React.FC<SparkCardProps> = ({
               onPress={() => setIsExpanded(!isExpanded)}
               style={styles.expandButton}
             >
-              <Text style={styles.expandText}>
+              <Text style={[styles.expandText, { color: modeColors.color }]}>
                 {isExpanded ? "Show less" : "Read more"}
               </Text>
             </TouchableOpacity>
           )}
 
-          {/* Follow-up question if exists */}
-          {spark.followUp && !compact && (
-            <View style={styles.followUpContainer}>
-              <Text style={styles.followUpLabel}>💭 Follow-up:</Text>
-              <Text style={styles.followUpText}>{spark.followUp}</Text>
-            </View>
-          )}
-
-          {/* Concept Links */}
-          {spark.conceptLinks && spark.conceptLinks.length > 0 && !compact && (
+          {/* Concept Links (if not compact) */}
+          {!compact && spark.conceptLinks && spark.conceptLinks.length > 0 && (
             <View style={styles.conceptsContainer}>
               {spark.conceptLinks.slice(0, 3).map((concept, index) => (
-                <View key={index} style={styles.conceptChip}>
-                  <Text style={styles.conceptText}>{concept}</Text>
+                <View
+                  key={index}
+                  style={[
+                    styles.conceptChip,
+                    { backgroundColor: modeColors.light },
+                  ]}
+                >
+                  <Text
+                    style={[styles.conceptText, { color: modeColors.color }]}
+                  >
+                    {concept}
+                  </Text>
                 </View>
               ))}
               {spark.conceptLinks.length > 3 && (
-                <View style={styles.conceptChip}>
-                  <Text style={styles.conceptText}>
+                <View
+                  style={[
+                    styles.conceptChip,
+                    { backgroundColor: modeColors.light },
+                  ]}
+                >
+                  <Text
+                    style={[styles.conceptText, { color: modeColors.color }]}
+                  >
                     +{spark.conceptLinks.length - 3}
                   </Text>
                 </View>
@@ -172,16 +199,24 @@ export const SparkCard: React.FC<SparkCardProps> = ({
 
             <View style={styles.actions}>
               {/* Viewed indicator */}
-              {spark.viewed && <Text style={styles.viewedIcon}>👁️</Text>}
+              {spark.viewed && (
+                <View style={styles.viewedBadge}>
+                  <Text style={styles.viewedIcon}>👁</Text>
+                </View>
+              )}
 
               {/* Save button */}
-              <TouchableOpacity
-                onPress={onSave}
-                style={styles.saveButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.saveIcon}>{spark.saved ? "❤️" : "🤍"}</Text>
-              </TouchableOpacity>
+              {onSave && (
+                <TouchableOpacity
+                  onPress={onSave}
+                  style={styles.saveButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.saveIcon}>
+                    {spark.saved ? "❤" : "🤍"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -193,10 +228,10 @@ export const SparkCard: React.FC<SparkCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.neutral.white,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xxl,
+    padding: SPACING.base,
     marginVertical: SPACING.sm,
-    ...SHADOWS.medium,
+    ...SHADOWS.soft,
   },
   compactCard: {
     padding: SPACING.md,
@@ -205,25 +240,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    paddingHorizontal: SPACING.sm,
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: BORDER_RADIUS.full,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   modeIcon: {
     fontSize: FONT_SIZES.sm,
     marginRight: SPACING.xs,
   },
   modeLabel: {
-    color: COLORS.neutral.white,
     fontSize: FONT_SIZES.xs,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   sparkText: {
-    fontSize: FONT_SIZES.lg,
-    lineHeight: FONT_SIZES.lg * 1.5,
+    fontSize: FONT_SIZES.base,
+    lineHeight: FONT_SIZES.base * 1.5,
     color: COLORS.neutral.black,
-    fontWeight: "500",
+    fontWeight: FONT_WEIGHTS.medium,
     marginBottom: SPACING.md,
   },
   expandButton: {
@@ -231,26 +265,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   expandText: {
-    color: COLORS.primary.main,
     fontSize: FONT_SIZES.sm,
-    fontWeight: "600",
-  },
-  followUpContainer: {
-    backgroundColor: COLORS.neutral.gray50,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  followUpLabel: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: "600",
-    color: COLORS.neutral.gray600,
-    marginBottom: SPACING.xs,
-  },
-  followUpText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray700,
-    lineHeight: FONT_SIZES.sm * 1.4,
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   conceptsContainer: {
     flexDirection: "row",
@@ -258,38 +274,42 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   conceptChip: {
-    backgroundColor: COLORS.accent.purple + "20",
-    paddingHorizontal: SPACING.sm,
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: BORDER_RADIUS.full,
     marginRight: SPACING.xs,
     marginBottom: SPACING.xs,
   },
   conceptText: {
     fontSize: FONT_SIZES.xs,
-    color: COLORS.primary.dark,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.neutral.gray100,
   },
   timestamp: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.neutral.gray500,
+    fontWeight: FONT_WEIGHTS.medium,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
   },
-  viewedIcon: {
-    fontSize: FONT_SIZES.sm,
+  viewedBadge: {
     marginRight: SPACING.sm,
   },
+  viewedIcon: {
+    fontSize: FONT_SIZES.sm,
+  },
   saveButton: {
-    padding: SPACING.xs,
+    padding: SPACING.xs / 2,
   },
   saveIcon: {
     fontSize: FONT_SIZES.lg,

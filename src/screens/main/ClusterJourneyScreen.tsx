@@ -10,7 +10,11 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { RouteProp, useNavigation, NavigationProp } from "@react-navigation/native";
+import {
+  RouteProp,
+  useNavigation,
+  NavigationProp,
+} from "@react-navigation/native";
 import { RootStackParamList } from "@navigation/AppNavigation";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
@@ -23,7 +27,10 @@ import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 
-type ClusterJourneyScreenRouteProp = RouteProp<RootStackParamList, 'ClusterJourney'>;
+type ClusterJourneyScreenRouteProp = RouteProp<
+  RootStackParamList,
+  "ClusterJourney"
+>;
 
 type ClusterJourneyScreenProps = {
   route: ClusterJourneyScreenRouteProp;

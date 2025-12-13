@@ -1,5 +1,4 @@
-// src/screens/main/QuickSparkScreen.tsx
-// PERUBAHAN: Gunakan settings.difficultyLevel untuk generate
+// src/screens/main/QuickSparkScreen.tsx - FRESH QUICK SPARK
 
 import React, { useState, useEffect } from "react";
 import {
@@ -12,14 +11,21 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
 import { useSettingsStore } from "@stores/settingsStore";
 import Button from "@components/common/Button";
-import Card from "@components/common/Card";
+import { ModeCard, SoftCard } from "@components/common/Card";
+import TagChip from "@components/tags/TagChip";
 import LoadingSpinner from "@components/common/LoadingSpinner";
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  ANIMATION,
+} from "@constants/colors";
 
 interface QuickSparkScreenProps {
   navigation: any;
@@ -33,15 +39,16 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     currentSpark,
     isGenerating,
     error,
-    generateQuickSpark, // Ini sudah terima difficulty parameter
+    generateQuickSpark,
     toggleSaved,
     markAsViewed,
   } = useSparkStore();
-  const { settings } = useSettingsStore(); // ✅ AMBIL SETTINGS
+  const { settings } = useSettingsStore();
 
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showInsight, setShowInsight] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const insightAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadDailyTags();
@@ -50,16 +57,18 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   useEffect(() => {
     if (currentSpark) {
       markAsViewed(currentSpark.id);
+      setShowInsight(false);
 
+      // Entrance animation
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 600,
+          duration: ANIMATION.slow,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          speed: 12,
+          speed: 10,
           bounciness: 8,
           useNativeDriver: true,
         }),
@@ -73,24 +82,24 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
       return;
     }
 
-    setShowAnswer(false);
+    setShowInsight(false);
     fadeAnim.setValue(0);
-    scaleAnim.setValue(0.9);
+    scaleAnim.setValue(0.95);
 
     try {
-      // ✅ GUNAKAN settings.difficultyLevel
       await generateQuickSpark(dailyTags, settings.difficultyLevel);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to generate spark");
     }
   };
 
-  const handleRevealAnswer = () => {
-    setShowAnswer(true);
-    Animated.spring(fadeAnim, {
+  const handleRevealInsight = () => {
+    setShowInsight(true);
+
+    Animated.spring(insightAnim, {
       toValue: 1,
-      speed: 12,
-      bounciness: 6,
+      speed: 10,
+      bounciness: 8,
       useNativeDriver: true,
     }).start();
   };
@@ -106,9 +115,9 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <LoadingSpinner
-            variant="gradient"
+            variant="dots"
             size="large"
-            message="Generating your spark... ✨"
+            message="Generating your spark..."
           />
         </View>
       </SafeAreaView>
@@ -116,190 +125,228 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={["#FFFFFF", "#F0F9FF"]} style={styles.gradient}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>⚡ Quick Spark</Text>
-          <View style={styles.backButton} />
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {!currentSpark ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>⚡✨💭</Text>
-              <Text style={styles.emptyTitle}>Ready to Spark?</Text>
-              <Text style={styles.emptyDescription}>
-                Generate a quick curiosity boost based on today's tags
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Quick Spark ⚡</Text>
+        <View style={styles.backButton} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {!currentSpark ? (
+          // Empty State
+          <Animated.View
+            style={[
+              styles.emptyState,
+              {
+                opacity: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                }),
+              },
+            ]}
+          >
+            <Text style={styles.emptyEmoji}>✨💡⚡</Text>
+            <Text style={styles.emptyTitle}>Ready to Spark?</Text>
+            <Text style={styles.emptyDescription}>
+              Generate a quick curiosity boost based on today's tags
+            </Text>
+
+            <SoftCard style={styles.infoCard}>
+              <Text style={styles.infoTitle}>Settings</Text>
+              <Text style={styles.infoItem}>
+                Difficulty Level: {Math.round(settings.difficultyLevel * 100)}%
               </Text>
+              <Text style={styles.infoItem}>
+                {settings.difficultyLevel < 0.3
+                  ? "Focused mode"
+                  : settings.difficultyLevel < 0.6
+                  ? "Balanced exploration"
+                  : settings.difficultyLevel < 0.8
+                  ? "Creative connections"
+                  : "Maximum creativity"}
+              </Text>
+            </SoftCard>
 
-              {/* ✅ TAMPILKAN difficulty LEVEL */}
-              <Card variant="elevated" style={styles.infoCard}>
-                <Text style={styles.infoTitle}>🎯 Settings:</Text>
-                <Text style={styles.infoItem}>
-                  • difficulty Level: {Math.round(settings.difficultyLevel * 100)}%
-                </Text>
-                <Text style={styles.infoItem}>
-                  •{" "}
-                  {settings.difficultyLevel < 0.3
-                    ? "Focused mode"
-                    : settings.difficultyLevel < 0.6
-                    ? "Balanced exploration"
-                    : settings.difficultyLevel < 0.8
-                    ? "Creative connections"
-                    : "Maximum creativity"}
-                </Text>
-              </Card>
+            <Button
+              title="Generate Spark"
+              onPress={handleGenerate}
+              variant="gradient"
+              size="large"
+              fullWidth
+              style={styles.generateButton}
+            />
+          </Animated.View>
+        ) : (
+          // Spark View
+          <Animated.View
+            style={{
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            }}
+          >
+            {/* Tags */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tagsScroll}
+            >
+              {dailyTags && Array.isArray(dailyTags) ? dailyTags.slice(0, 3).map((tag, index) => (
+                <TagChip
+                  key={tag.id}
+                  label={tag.name}
+                  selected
+                  color={["mint", "coral", "sunny"][index % 3] as any}
+                  size="medium"
+                  style={styles.tag}
+                />
+              )) : null}
+            </ScrollView>
 
+            {/* Question Card */}
+            <ModeCard color="mint" style={styles.questionCard}>
+              <View style={styles.questionHeader}>
+                <View style={styles.cloudIcon}>
+                  <Text style={styles.cloudText}>☁</Text>
+                </View>
+                <Text style={styles.questionLabel}>Today's Question</Text>
+              </View>
+
+              <Text style={styles.questionText}>{currentSpark.text}</Text>
+            </ModeCard>
+
+            {/* Reveal Insight Button */}
+            {!showInsight ? (
               <Button
-                title="Generate Spark ⚡"
+                title="Reveal Insight"
+                onPress={handleRevealInsight}
+                variant="outline"
+                size="large"
+                fullWidth
+                style={styles.revealButton}
+              />
+            ) : (
+              // Insight Content
+              <Animated.View
+                style={{
+                  opacity: insightAnim,
+                  transform: [
+                    {
+                      translateY: insightAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                {/* Fun Fact */}
+                {currentSpark.funFact && (
+                  <SoftCard style={styles.insightCard}>
+                    <Text style={styles.insightLabel}>Fun Fact</Text>
+                    <Text style={styles.insightText}>
+                      {currentSpark.funFact}
+                    </Text>
+                  </SoftCard>
+                )}
+
+                {/* Application */}
+                {currentSpark.application && (
+                  <SoftCard style={styles.insightCard}>
+                    <Text style={styles.insightLabel}>Real Application</Text>
+                    <Text style={styles.insightText}>
+                      {currentSpark.application}
+                    </Text>
+                  </SoftCard>
+                )}
+
+                {/* Knowledge (if exists) */}
+                {currentSpark.knowledge && (
+                  <SoftCard style={styles.insightCard}>
+                    <Text style={styles.insightLabel}>Learn More</Text>
+                    <Text style={styles.insightText}>
+                      {currentSpark.knowledge}
+                    </Text>
+                  </SoftCard>
+                )}
+              </Animated.View>
+            )}
+
+            {/* Concept Links */}
+            {currentSpark.conceptLinks && Array.isArray(currentSpark.conceptLinks) &&
+              currentSpark.conceptLinks.length > 0 && (
+                <View style={styles.conceptsSection}>
+                  <Text style={styles.conceptsTitle}>Related Concepts</Text>
+                  <View style={styles.conceptsGrid}>
+                    {currentSpark.conceptLinks.map((concept, index) => (
+                      <View key={index} style={styles.conceptChip}>
+                        <Text style={styles.conceptText}>{concept}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+            {/* Actions */}
+            <View style={styles.actions}>
+              <Button
+                title="Generate Another"
                 onPress={handleGenerate}
                 variant="gradient"
                 size="large"
                 fullWidth
-                style={styles.generateButton}
+                style={styles.actionButton}
               />
             </View>
-          ) : (
-            <Animated.View
-              style={{
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              }}
-            >
-              <Card variant="elevated" style={styles.sparkCard}>
-                <LinearGradient
-                  colors={
-                    COLORS.gradients.forest as [string, string, ...string[]]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.sparkBadge}
-                >
-                  <Text style={styles.sparkBadgeText}>✨ Your Spark</Text>
-                </LinearGradient>
+          </Animated.View>
+        )}
 
-                <Text style={styles.sparkText}>{currentSpark.text}</Text>
+        <View style={{ height: SPACING.huge }} />
+      </ScrollView>
 
-                <View style={styles.sparkActions}>
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    style={styles.actionButton}
-                  >
-                    <Text style={styles.actionIcon}>
-                      {currentSpark.saved ? "❤️" : "🤍"}
-                    </Text>
-                    <Text style={styles.actionLabel}>
-                      {currentSpark.saved ? "Saved" : "Save"}
-                    </Text>
-                  </TouchableOpacity>
+      {/* Bottom Actions (Save & Share) */}
+      {currentSpark && (
+        <View style={styles.bottomActions}>
+          <TouchableOpacity style={styles.bottomButton} onPress={handleSave}>
+            <Text style={styles.bottomButtonIcon}>
+              {currentSpark.saved ? "❤" : "🤍"}
+            </Text>
+            <Text style={styles.bottomButtonText}>Save</Text>
+          </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => {}}
-                    style={styles.actionButton}
-                  >
-                    <Text style={styles.actionIcon}>📤</Text>
-                    <Text style={styles.actionLabel}>Share</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
+          <View style={styles.bottomDivider} />
 
-              {currentSpark.followUp && (
-                <Card variant="outlined" style={styles.followUpCard}>
-                  <View style={styles.followUpHeader}>
-                    <Text style={styles.followUpIcon}>💭</Text>
-                    <Text style={styles.followUpTitle}>Dig Deeper</Text>
-                  </View>
-
-                  {!showAnswer ? (
-                    <View>
-                      <Text style={styles.followUpText}>
-                        {currentSpark.followUp}
-                      </Text>
-                      <Button
-                        title="Reveal Answer 👀"
-                        onPress={handleRevealAnswer}
-                        variant="secondary"
-                        size="medium"
-                        style={styles.revealButton}
-                      />
-                    </View>
-                  ) : (
-                    <Animated.View style={{ opacity: fadeAnim }}>
-                      <Text style={styles.followUpText}>
-                        {currentSpark.followUp}
-                      </Text>
-                      <View style={styles.answerContainer}>
-                        <Text style={styles.answerLabel}>💡 Think about:</Text>
-                        <Text style={styles.answerText}>
-                          Explore how these concepts connect to your own
-                          experiences and what new questions emerge from this
-                          spark.
-                        </Text>
-                      </View>
-                    </Animated.View>
-                  )}
-                </Card>
-              )}
-
-              {currentSpark.conceptLinks &&
-                currentSpark.conceptLinks.length > 0 && (
-                  <Card variant="glass" style={styles.conceptsCard}>
-                    <Text style={styles.conceptsTitle}>
-                      🔗 Related Concepts
-                    </Text>
-                    <View style={styles.conceptsGrid}>
-                      {currentSpark.conceptLinks.map((concept, index) => (
-                        <View key={index} style={styles.conceptChip}>
-                          <Text style={styles.conceptText}>{concept}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </Card>
-                )}
-
-              <Button
-                title="Generate Another ⚡"
-                onPress={handleGenerate}
-                variant="outline"
-                size="large"
-                fullWidth
-                style={styles.anotherButton}
-              />
-            </Animated.View>
-          )}
-
-          <View style={{ height: SPACING.xxxl }} />
-        </ScrollView>
-      </LinearGradient>
+          <TouchableOpacity style={styles.bottomButton}>
+            <Text style={styles.bottomButtonIcon}>📤</Text>
+            <Text style={styles.bottomButtonText}>Share</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
-// Styles sama seperti sebelumnya
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral.white,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: COLORS.neutral.offWhite,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
   },
   backButton: {
     width: 40,
@@ -313,11 +360,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.base,
   },
   loadingContainer: {
     flex: 1,
@@ -326,135 +373,111 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: SPACING.xxxl,
+    paddingVertical: SPACING.huge,
   },
   emptyEmoji: {
-    fontSize: 80,
+    fontSize: 64,
     marginBottom: SPACING.lg,
   },
   emptyTitle: {
     fontSize: FONT_SIZES.xxxl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
     marginBottom: SPACING.sm,
   },
   emptyDescription: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.base,
     color: COLORS.neutral.gray600,
     textAlign: "center",
     marginBottom: SPACING.xl,
     paddingHorizontal: SPACING.lg,
+    lineHeight: FONT_SIZES.base * 1.5,
   },
   infoCard: {
     width: "100%",
     marginBottom: SPACING.xl,
+    padding: SPACING.base,
   },
   infoTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: "600",
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.neutral.black,
     marginBottom: SPACING.sm,
   },
   infoItem: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray600,
-    marginVertical: SPACING.xs,
+    marginVertical: SPACING.xs / 2,
   },
   generateButton: {
     marginTop: SPACING.md,
   },
-  sparkCard: {
-    marginBottom: SPACING.lg,
-  },
-  sparkBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
+  tagsScroll: {
+    paddingVertical: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  sparkBadgeText: {
-    color: COLORS.neutral.white,
-    fontSize: FONT_SIZES.xs,
-    fontWeight: "600",
-  },
-  sparkText: {
-    fontSize: FONT_SIZES.xxl,
-    lineHeight: FONT_SIZES.xxl * 1.4,
-    color: COLORS.neutral.black,
-    fontWeight: "500",
-    marginBottom: SPACING.lg,
-  },
-  sparkActions: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.neutral.gray200,
-    paddingTop: SPACING.md,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: SPACING.xl,
-  },
-  actionIcon: {
-    fontSize: 20,
-    marginRight: SPACING.xs,
-  },
-  actionLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray600,
-    fontWeight: "600",
-  },
-  followUpCard: {
-    marginBottom: SPACING.lg,
-  },
-  followUpHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SPACING.md,
-  },
-  followUpIcon: {
-    fontSize: 20,
+  tag: {
     marginRight: SPACING.sm,
   },
-  followUpTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "600",
-    color: COLORS.neutral.black,
+  questionCard: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
+    minHeight: 200,
   },
-  followUpText: {
-    fontSize: FONT_SIZES.md,
-    lineHeight: FONT_SIZES.md * 1.5,
-    color: COLORS.neutral.gray700,
-    marginBottom: SPACING.md,
+  questionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.base,
+  },
+  cloudIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.sm,
+  },
+  cloudText: {
+    fontSize: 18,
+  },
+  questionLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.neutral.white,
+    opacity: 0.9,
+  },
+  questionText: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.neutral.white,
+    lineHeight: FONT_SIZES.xl * 1.4,
   },
   revealButton: {
-    marginTop: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
-  answerContainer: {
-    backgroundColor: COLORS.accent.yellow + "20",
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    marginTop: SPACING.sm,
+  insightCard: {
+    marginBottom: SPACING.md,
+    padding: SPACING.base,
   },
-  answerLabel: {
+  insightLabel: {
     fontSize: FONT_SIZES.sm,
-    fontWeight: "600",
-    color: COLORS.neutral.black,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.primary.main,
     marginBottom: SPACING.xs,
   },
-  answerText: {
+  insightText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray700,
-    lineHeight: FONT_SIZES.sm * 1.4,
+    lineHeight: FONT_SIZES.sm * 1.5,
   },
-  conceptsCard: {
+  conceptsSection: {
+    marginTop: SPACING.base,
     marginBottom: SPACING.lg,
   },
   conceptsTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: "600",
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.neutral.black,
     marginBottom: SPACING.md,
   },
@@ -464,19 +487,51 @@ const styles = StyleSheet.create({
     marginHorizontal: -SPACING.xs,
   },
   conceptChip: {
-    backgroundColor: COLORS.accent.purple + "20",
+    backgroundColor: COLORS.primary.light,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.full,
     margin: SPACING.xs,
   },
   conceptText: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.primary.dark,
-    fontWeight: "600",
+    color: COLORS.primary.main,
+    fontWeight: FONT_WEIGHTS.medium,
   },
-  anotherButton: {
-    marginTop: SPACING.md,
+  actions: {
+    marginTop: SPACING.lg,
+  },
+  actionButton: {
+    marginBottom: SPACING.sm,
+  },
+  bottomActions: {
+    flexDirection: "row",
+    backgroundColor: COLORS.neutral.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.neutral.gray200,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
+  },
+  bottomButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SPACING.sm,
+  },
+  bottomButtonIcon: {
+    fontSize: 20,
+    marginRight: SPACING.xs,
+  },
+  bottomButtonText: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.neutral.gray700,
+  },
+  bottomDivider: {
+    width: 1,
+    backgroundColor: COLORS.neutral.gray200,
+    marginHorizontal: SPACING.sm,
   },
 });
 

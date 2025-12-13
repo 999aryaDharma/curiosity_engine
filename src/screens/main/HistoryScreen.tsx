@@ -1,4 +1,4 @@
-// src/screens/main/HistoryScreen.tsx
+// src/screens/main/HistoryScreen.tsx - FRESH HISTORY VIEW
 
 import React, { useEffect, useState } from "react";
 import {
@@ -15,11 +15,20 @@ import { SparkMode } from "@type/spark.types";
 import SparkCard from "@components/spark/SparkCard";
 import TagChip from "@components/tags/TagChip";
 import LoadingSpinner from "@components/common/LoadingSpinner";
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
+import {
+  COLORS,
+  SPACING,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  BORDER_RADIUS,
+  ANIMATION,
+} from "@constants/colors";
 
 interface HistoryScreenProps {
   navigation: any;
 }
+
+type FilterType = "all" | "saved";
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
   const {
@@ -30,7 +39,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
     toggleSaved,
   } = useSparkStore();
 
-  const [filter, setFilter] = useState<"all" | "saved">("all");
+  const [filter, setFilter] = useState<FilterType>("all");
   const [modeFilter, setModeFilter] = useState<SparkMode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,7 +58,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
     // Animate
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 500,
+      duration: ANIMATION.slow,
       useNativeDriver: true,
     }).start();
   };
@@ -70,6 +79,26 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
     await loadRecentSparks(50);
   };
 
+  const handleFilterChange = (newFilter: FilterType) => {
+    fadeAnim.setValue(0);
+    setFilter(newFilter);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: ANIMATION.normal,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleModeFilterChange = (mode: SparkMode | null) => {
+    fadeAnim.setValue(0);
+    setModeFilter(mode);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: ANIMATION.normal,
+      useNativeDriver: true,
+    }).start();
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -87,16 +116,17 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
   const filteredSparks = getFilteredSparks();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>📚 History</Text>
+        <Text style={styles.headerTitle}>Recent Sparks 📚</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -111,48 +141,88 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
           <TagChip
             label="All"
             selected={filter === "all"}
-            onPress={() => setFilter("all")}
+            onPress={() => handleFilterChange("all")}
+            color="mint"
             size="medium"
-            variant={filter === "all" ? "gradient" : "outlined"}
             style={styles.filterChip}
           />
           <TagChip
             label={`Saved (${savedSparks.length})`}
             selected={filter === "saved"}
-            onPress={() => setFilter("saved")}
+            onPress={() => handleFilterChange("saved")}
+            color="rose"
             size="medium"
-            variant={filter === "saved" ? "gradient" : "outlined"}
             style={styles.filterChip}
           />
 
+          {/* Divider */}
+          <View style={styles.filterDivider} />
+
           {/* Mode Filters */}
-          <TagChip
-            label="⚡ Quick"
-            selected={modeFilter === 1}
-            onPress={() => setModeFilter(modeFilter === 1 ? null : 1)}
-            size="medium"
-            variant={modeFilter === 1 ? "gradient" : "outlined"}
-            color={COLORS.sparkModes.quick}
-            style={styles.filterChip}
-          />
-          <TagChip
-            label="🌊 Deep Dive"
-            selected={modeFilter === 2}
-            onPress={() => setModeFilter(modeFilter === 2 ? null : 2)}
-            size="medium"
-            variant={modeFilter === 2 ? "gradient" : "outlined"}
-            color={COLORS.sparkModes.deepDive}
-            style={styles.filterChip}
-          />
-          <TagChip
-            label="🧵 Thread"
-            selected={modeFilter === 3}
-            onPress={() => setModeFilter(modeFilter === 3 ? null : 3)}
-            size="medium"
-            variant={modeFilter === 3 ? "gradient" : "outlined"}
-            color={COLORS.sparkModes.thread}
-            style={styles.filterChip}
-          />
+          <View style={styles.modeBadge}>
+            <TouchableOpacity
+              onPress={() =>
+                handleModeFilterChange(modeFilter === 1 ? null : 1)
+              }
+              style={[
+                styles.modeChip,
+                modeFilter === 1 && styles.modeChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modeChipText,
+                  modeFilter === 1 && styles.modeChipTextActive,
+                ]}
+              >
+                ⚡ Quick
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modeBadge}>
+            <TouchableOpacity
+              onPress={() =>
+                handleModeFilterChange(modeFilter === 2 ? null : 2)
+              }
+              style={[
+                styles.modeChip,
+                modeFilter === 2 && styles.modeChipActive,
+                modeFilter === 2 && { backgroundColor: COLORS.secondary.main },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modeChipText,
+                  modeFilter === 2 && styles.modeChipTextActive,
+                ]}
+              >
+                🌊 Deep
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modeBadge}>
+            <TouchableOpacity
+              onPress={() =>
+                handleModeFilterChange(modeFilter === 3 ? null : 3)
+              }
+              style={[
+                styles.modeChip,
+                modeFilter === 3 && styles.modeChipActive,
+                modeFilter === 3 && { backgroundColor: COLORS.info.main },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modeChipText,
+                  modeFilter === 3 && styles.modeChipTextActive,
+                ]}
+              >
+                🧵 Thread
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </View>
 
@@ -173,21 +243,37 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
             </View>
           ) : (
             <>
-              <Text style={styles.countText}>
-                {filteredSparks.length}{" "}
-                {filteredSparks.length === 1 ? "spark" : "sparks"}
-              </Text>
+              <View style={styles.countContainer}>
+                <Text style={styles.countText}>
+                  {filteredSparks.length}{" "}
+                  {filteredSparks.length === 1 ? "spark" : "sparks"}
+                </Text>
+              </View>
 
-              {filteredSparks.map((spark) => (
-                <SparkCard
+              {filteredSparks.map((spark, index) => (
+                <Animated.View
                   key={spark.id}
-                  spark={spark}
-                  compact
-                  onPress={() =>
-                    navigation.navigate("SparkDetail", { sparkId: spark.id })
-                  }
-                  onSave={() => handleSave(spark.id)}
-                />
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateY: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20 * Math.min(index + 1, 5), 0],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <SparkCard
+                    spark={spark}
+                    compact
+                    onPress={() =>
+                      navigation.navigate("SparkDetail", { sparkId: spark.id })
+                    }
+                    onSave={() => handleSave(spark.id)}
+                  />
+                </Animated.View>
               ))}
             </>
           )}
@@ -202,17 +288,14 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral.white,
+    backgroundColor: COLORS.neutral.offWhite,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.neutral.gray200,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
   },
   backButton: {
     width: 40,
@@ -226,7 +309,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
   },
   loadingContainer: {
@@ -238,34 +321,66 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.neutral.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.neutral.gray200,
+    paddingVertical: SPACING.md,
   },
   filtersScroll: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    alignItems: "center",
   },
   filterChip: {
     marginRight: SPACING.sm,
   },
+  filterDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: COLORS.neutral.gray300,
+    marginHorizontal: SPACING.sm,
+  },
+  modeBadge: {
+    marginRight: SPACING.sm,
+  },
+  modeChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.neutral.gray100,
+    borderWidth: 1.5,
+    borderColor: COLORS.neutral.gray200,
+  },
+  modeChipActive: {
+    backgroundColor: COLORS.primary.main,
+    borderColor: COLORS.primary.main,
+  },
+  modeChipText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.neutral.gray600,
+  },
+  modeChipTextActive: {
+    color: COLORS.neutral.white,
+  },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.base,
     paddingTop: SPACING.md,
+  },
+  countContainer: {
+    marginBottom: SPACING.md,
   },
   countText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray600,
-    marginBottom: SPACING.md,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHTS.semibold,
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: SPACING.xxxl,
+    paddingVertical: SPACING.huge,
   },
   emptyEmoji: {
     fontSize: 64,
     marginBottom: SPACING.lg,
   },
   emptyText: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.base,
     color: COLORS.neutral.gray500,
     textAlign: "center",
   },

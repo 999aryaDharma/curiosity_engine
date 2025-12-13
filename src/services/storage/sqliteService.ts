@@ -229,6 +229,7 @@ class SQLiteService {
           missingBasicColumns
         );
 
+        // If basic columns are missing, something is very wrong - we need to recreate the table
         const existingSparks = await this.db.getAllAsync<any>(
           "SELECT * FROM sparks;"
         );
@@ -236,14 +237,53 @@ class SQLiteService {
         // Drop the old table
         await this.db.execAsync("DROP TABLE sparks;");
 
-        // Create the new table with the correct schema (sama seperti di atas)
-        await this.db.execAsync(`... (query CREATE TABLE sparks) ...`);
+        // Create the new table with the complete schema
+        await this.db.execAsync(`
+          CREATE TABLE sparks (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            tags TEXT NOT NULL,
+            mode INTEGER NOT NULL,
+            layers TEXT,
+            concept_links TEXT,
+            follow_up TEXT,
+            created_at INTEGER NOT NULL,
+            viewed INTEGER DEFAULT 0,
+            saved INTEGER DEFAULT 0,
+            knowledge TEXT,
+            fun_fact TEXT,
+            application TEXT,
+            difficulty REAL DEFAULT 0.5,
+            knowledge_revealed INTEGER DEFAULT 0
+          )
+        `);
 
-        // Re-insert data
+        // Re-insert data, ensuring new columns have proper defaults
         for (const spark of existingSparks) {
-          await this.db.runAsync(`... (query INSERT INTO sparks) ...`, [
-            /* params */
-          ]);
+          await this.db.runAsync(
+            `INSERT INTO sparks (
+              id, text, tags, mode, layers, concept_links, follow_up,
+              created_at, viewed, saved, knowledge, fun_fact, application,
+              difficulty, knowledge_revealed
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              spark.id,
+              spark.text,
+              spark.tags,
+              spark.mode,
+              spark.layers,
+              spark.concept_links,
+              spark.follow_up,
+              spark.created_at,
+              spark.viewed,
+              spark.saved,
+              spark.knowledge || null,  // New column
+              spark.fun_fact || null,  // New column
+              spark.application || null,  // New column
+              spark.difficulty !== undefined ? spark.difficulty : 0.5,  // New column with default
+              spark.knowledge_revealed || 0  // New column with default
+            ]
+          );
         }
       }
 
