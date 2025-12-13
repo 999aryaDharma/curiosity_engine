@@ -55,6 +55,12 @@ CREATE INDEX idx_sparks_created_at ON sparks(created_at DESC);
 CREATE INDEX idx_sparks_saved ON sparks(saved);
 CREATE INDEX idx_sparks_viewed ON sparks(viewed);
 
+ALTER TABLE sparks ADD COLUMN knowledge TEXT;
+ALTER TABLE sparks ADD COLUMN fun_fact TEXT;
+ALTER TABLE sparks ADD COLUMN application TEXT;
+ALTER TABLE sparks ADD COLUMN difficulty REAL DEFAULT 0.5;
+ALTER TABLE sparks ADD COLUMN knowledge_revealed INTEGER DEFAULT 0;
+
 -- ============================================
 -- CONCEPT NODES
 -- ============================================

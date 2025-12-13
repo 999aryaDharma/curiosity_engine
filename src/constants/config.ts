@@ -1,8 +1,8 @@
-// src/constants/config.ts
+// src/constants/config.ts - KNOWLEDGE-BASED CONFIG
 
 export const APP_CONFIG = {
   APP_NAME: "Curiosity Engine",
-  VERSION: "1.0.0",
+  VERSION: "2.0.0", // Major version bump for knowledge transformation
   BUILD_NUMBER: 1,
 
   DEFAULT_LANGUAGE: "en" as const,
@@ -13,6 +13,10 @@ export const APP_CONFIG = {
 
   MAX_SPARK_LENGTH: 280,
   MIN_SPARK_LENGTH: 50,
+
+  // NEW: Knowledge field constraints
+  MIN_KNOWLEDGE_LENGTH: 80, // words for factual explanation
+  MAX_KNOWLEDGE_LENGTH: 600, // characters
 
   DEEP_DIVE_MIN_LAYERS: 3,
   DEEP_DIVE_MAX_LAYERS: 6,
@@ -46,18 +50,22 @@ export const LLM_CONFIG = {
 } as const;
 
 export const SPARK_MODES = {
-  QUICK_SPARK: 1,
+  QUICK_LEARN: 1, // Renamed from QUICK_SPARK
   DEEP_DIVE: 2,
-  THREAD: 3,
+  KNOWLEDGE_GRAPH: 3, // Renamed from THREAD
 } as const;
 
-export const CHAOS_LEVELS = {
-  NONE: 0.0,
-  LOW: 0.2,
-  MEDIUM: 0.5,
-  HIGH: 0.8,
-  MAXIMUM: 1.0,
+// NEW: Difficulty levels (replaces CHAOS_LEVELS)
+export const DIFFICULTY_LEVELS = {
+  BEGINNER: 0.0, // Basic facts, simple explanations
+  ELEMENTARY: 0.25, // Fundamental concepts
+  INTERMEDIATE: 0.5, // Technical depth
+  ADVANCED: 0.75, // Complex systems
+  EXPERT: 1.0, // Cutting-edge knowledge
 } as const;
+
+// Legacy alias for backward compatibility
+export const CHAOS_LEVELS = DIFFICULTY_LEVELS;
 
 export const ERROR_CODES = {
   DATABASE_ERROR: "DB_ERROR",
@@ -102,8 +110,8 @@ export const DEFAULT_SETTINGS = {
   language: "en" as const,
   notificationsEnabled: false,
   dailyReminderTime: "09:00",
-  defaultSparkMode: SPARK_MODES.QUICK_SPARK,
-  chaosLevel: CHAOS_LEVELS.MEDIUM,
+  defaultSparkMode: SPARK_MODES.QUICK_LEARN,
+  difficultyLevel: DIFFICULTY_LEVELS.INTERMEDIATE, // Renamed from chaosLevel
   maxDeepDiveLayers: 4,
   tagSelectionConfig: {
     historyWeight: 0.4,

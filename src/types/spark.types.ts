@@ -1,4 +1,4 @@
-// src/types/spark.types.ts
+// src/types/spark.types.ts - KNOWLEDGE-BASED TYPES
 
 import {
   DeepDiveLayerResponse,
@@ -6,19 +6,34 @@ import {
 } from "./deepdive.types";
 import { ThreadPackResponse } from "./thread.types";
 
-export type SparkMode = 1 | 2 | 3; // 1: Quick, 2: Deep Dive, 3: Thread
+export type SparkMode = 1 | 2 | 3; // 1: Quick Learn, 2: Deep Dive, 3: Knowledge Graph
 
 export interface Spark {
   id: string;
-  text: string;
+  text: string; // The question
   tags: string[]; // Array of tag IDs
   mode: SparkMode;
+
+  // NEW: Knowledge-based fields
+  knowledge?: string; // Factual explanation (80-150 words) - HIDDEN initially
+  funFact?: string; // Interesting trivia
+  application?: string; // Practical use case
+
+  // Deep Dive specific
   layers?: SparkLayer[];
+
+  // Concept tracking
   conceptLinks: string[]; // Array of concept IDs
+
+  // Legacy (for Mode 1 backward compatibility)
   followUp?: string;
+
+  // Metadata
+  difficulty?: number; // 0.0-1.0 (replaces chaos)
   createdAt: number;
   viewed: boolean;
   saved: boolean;
+  knowledgeRevealed?: boolean; // Track if user has viewed the knowledge explanation
 }
 
 export interface SparkLayer {
@@ -34,11 +49,17 @@ export interface SparkBranch {
   nextLayer?: SparkLayer;
 }
 
-export interface QuickSparkResponse {
-  spark: string;
-  followUp: string;
-  conceptLinks: string[];
+// NEW: Quick Learn Response (Mode 1)
+export interface QuickLearnResponse {
+  question: string; // Educational question
+  knowledge: string; // Factual explanation (80-150 words) - HIDDEN initially
+  funFact: string; // Interesting trivia
+  application: string; // Practical use
+  conceptLinks: string[]; // 2-4 concepts
 }
+
+// Legacy type alias for backward compatibility
+export type QuickSparkResponse = QuickLearnResponse;
 
 export interface DeepDiveResponse {
   layers: {
@@ -48,27 +69,31 @@ export interface DeepDiveResponse {
   }[];
 }
 
-export interface ThreadSparkResponse {
+// NEW: Knowledge Graph Response (Mode 3)
+export interface KnowledgeGraphResponse {
   clusterSummary: string;
-  newSpark: string;
+  newSpark: string; // Educational question connecting domains
   conceptReinforcement: string[];
 }
+
+// Legacy type alias for backward compatibility
+export type ThreadSparkResponse = KnowledgeGraphResponse;
 
 export interface SparkGenerationInput {
   mode: SparkMode;
   tags: string[];
   cluster?: Record<string, any>;
   history?: Spark[];
-  chaos: number; // 0.0-1.0
+  difficulty: number; // 0.0-1.0 (replaces chaos - 0=beginner, 1=expert)
 }
 
 export interface SparkValidationResult {
   isValid: boolean;
   errors: string[];
   data?:
-    | QuickSparkResponse
+    | QuickLearnResponse
     | DeepDiveResponse
-    | ThreadSparkResponse
+    | KnowledgeGraphResponse
     | ThreadPackResponse
     | DeepDiveLayerResponse
     | DeepDiveSynthesisResponse;
@@ -81,6 +106,10 @@ export interface SparkFilter {
   dateTo?: number;
   saved?: boolean;
   viewed?: boolean;
+  difficulty?: {
+    min?: number;
+    max?: number;
+  };
 }
 
 export interface SparkStatistics {
@@ -89,4 +118,11 @@ export interface SparkStatistics {
   sparksByTag: Record<string, number>;
   averageDepth: number;
   mostViewedTags: string[];
+  knowledgeDomains: string[]; // Most explored knowledge clusters
+  difficultyDistribution: {
+    beginner: number;
+    intermediate: number;
+    advanced: number;
+    expert: number;
+  };
 }

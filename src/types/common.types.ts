@@ -8,7 +8,7 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   dailyReminderTime?: string; // HH:mm format
   defaultSparkMode: 1 | 2 | 3;
-  chaosLevel: number; // 0.0-1.0
+  difficultyLevel: number; // 0.0-1.0
   maxDeepDiveLayers: number; // 3-6
   tagSelectionConfig: {
     historyWeight: number;

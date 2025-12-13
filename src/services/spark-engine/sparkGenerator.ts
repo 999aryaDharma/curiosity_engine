@@ -15,7 +15,7 @@ import {
 } from "@type/spark.types";
 import { Tag } from "@type/tag.types";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
-import {sqliteService} from "@services/storage/sqliteService";
+import { sqliteService } from "@services/storage/sqliteService";
 import {
   ThreadPack,
   ThreadSpark,
@@ -25,14 +25,14 @@ import { v4 as uuidv4 } from "uuid";
 import { safeJSONParse, safeJSONStringify } from "@utils/jsonUtils";
 
 class SparkGenerator {
-  async generateQuickSpark(tags: Tag[], chaos: number = 0.5): Promise<Spark> {
-    const { system, user } = promptBuilder.buildQuickSparkPrompt(tags, chaos);
+  async generateQuickSpark(tags: Tag[], difficulty: number = 0.5): Promise<Spark> {
+    const { system, user } = promptBuilder.buildQuickLearnPrompt(tags, difficulty);
 
     const startTime = Date.now();
     const llmResponse = await llmClient.generateWithRetry({
       prompt: user,
       systemPrompt: system,
-      temperature: 0.7 + chaos * 0.2,
+      temperature: 0.7 + difficulty * 0.2,
       maxTokens: 500,
     });
     const duration = Date.now() - startTime;
@@ -51,14 +51,18 @@ class SparkGenerator {
 
     const spark: Spark = {
       id: uuidv4(),
-      text: data.spark,
+      text: data.question, // Changed from data.spark
+      knowledge: data.knowledge, // NEW
+      funFact: data.funFact, // NEW
+      application: data.application, // NEW
       tags: tags.map((t) => t.id),
       mode: 1,
-      followUp: data.followUp,
       conceptLinks: data.conceptLinks,
+      difficulty: difficulty, // NEW (was difficulty)
       createdAt: Date.now(),
       viewed: false,
       saved: false,
+      knowledgeRevealed: false, // NEW
     };
 
     await this.saveSpark(spark);
@@ -69,11 +73,11 @@ class SparkGenerator {
   async generateDeepDive(
     tags: Tag[],
     layers: number = 4,
-    chaos: number = 0.5
+    difficulty: number = 0.5
   ): Promise<Spark> {
     const { system, user } = promptBuilder.buildDeepDivePrompt(
       tags,
-      chaos,
+      difficulty,
       layers
     );
 
@@ -81,7 +85,7 @@ class SparkGenerator {
     const llmResponse = await llmClient.generateWithRetry({
       prompt: user,
       systemPrompt: system,
-      temperature: 0.7 + chaos * 0.2,
+      temperature: 0.7 + difficulty * 0.2,
     });
     const duration = Date.now() - startTime;
 
@@ -127,20 +131,20 @@ class SparkGenerator {
     tags: Tag[],
     clusters: ConceptCluster[],
     recentSparks: Spark[],
-    chaos: number = 0.5
+    difficulty: number = 0.5
   ): Promise<Spark> {
-    const { system, user } = promptBuilder.buildThreadSparkPrompt(
+    const { system, user } = promptBuilder.buildKnowledgeGraphPrompt(
       tags,
       clusters,
       recentSparks,
-      chaos
+      difficulty
     );
 
     const startTime = Date.now();
     const llmResponse = await llmClient.generateWithRetry({
       prompt: user,
       systemPrompt: system,
-      temperature: 0.7 + chaos * 0.2,
+      temperature: 0.7 + difficulty * 0.2,
       maxTokens: 600,
     });
     const duration = Date.now() - startTime;
@@ -176,7 +180,7 @@ class SparkGenerator {
   // NEW: Generate Thread Spark dari Cluster Spesifik
   async generateThreadSparkFromCluster(
     clusterId: string,
-    chaos: number = 0.5
+    difficulty: number = 0.5
   ): Promise<Spark> {
     console.log(
       `[SparkGenerator] Generating thread spark from cluster: ${clusterId}`
@@ -214,18 +218,18 @@ class SparkGenerator {
     );
 
     // 4. Build prompt khusus untuk cluster ini
-    const { system, user } = promptBuilder.buildThreadSparkFromClusterPrompt(
+    const { system, user } = promptBuilder.buildKnowledgeGraphFromClusterPrompt(
       cluster,
       validNodes,
       validHistorySparks,
-      chaos
+      difficulty
     );
 
     const startTime = Date.now();
     const llmResponse = await llmClient.generateWithRetry({
       prompt: user,
       systemPrompt: system,
-      temperature: 0.7 + chaos * 0.2,
+      temperature: 0.7 + difficulty * 0.2,
       maxTokens: 600,
     });
     const duration = Date.now() - startTime;
@@ -272,24 +276,24 @@ class SparkGenerator {
       layers?: number;
       clusters?: ConceptCluster[];
       recentSparks?: Spark[];
-      chaos?: number;
+      difficulty?: number;
     }
   ): Promise<Spark> {
-    const chaos = options?.chaos ?? 0.5;
+    const difficulty = options?.difficulty ?? 0.5;
 
     switch (mode) {
       case 1:
-        return await this.generateQuickSpark(tags, chaos);
+        return await this.generateQuickSpark(tags, difficulty);
 
       case 2:
-        return await this.generateDeepDive(tags, options?.layers || 4, chaos);
+        return await this.generateDeepDive(tags, options?.layers || 4, difficulty);
 
       case 3:
         return await this.generateThreadSpark(
           tags,
           options?.clusters || [],
           options?.recentSparks || [],
-          chaos
+          difficulty
         );
 
       default:
@@ -309,6 +313,11 @@ class SparkGenerator {
       created_at: spark.createdAt,
       viewed: spark.viewed ? 1 : 0,
       saved: spark.saved ? 1 : 0,
+      knowledge: spark.knowledge || null,
+      fun_fact: spark.funFact || null,
+      application: spark.application || null,
+      difficulty: spark.difficulty || 0.5,
+      knowledge_revealed: spark.knowledgeRevealed ? 1 : 0,
     });
 
     console.log(`[SparkGenerator] Spark saved: ${spark.id}`);
@@ -374,6 +383,10 @@ class SparkGenerator {
     return {
       id: row.id,
       text: row.text,
+      knowledge: row.knowledge || undefined,
+      funFact: row.fun_fact || undefined,
+      application: row.application || undefined,
+      difficulty: row.difficulty,
       tags: safeJSONParse(row.tags, []),
       mode: row.mode,
       layers: row.layers ? safeJSONParse(row.layers, undefined) : undefined,
@@ -387,7 +400,7 @@ class SparkGenerator {
 
   async generateThreadPack(
     clusterId: string,
-    chaos: number = 0.5
+    difficulty: number = 0.5
   ): Promise<ThreadPack> {
     console.log(
       `[SparkGenerator] Generating thread pack for cluster: ${clusterId}`
@@ -425,14 +438,14 @@ class SparkGenerator {
       cluster,
       validNodes,
       validHistorySparks,
-      chaos
+      difficulty
     );
 
     const startTime = Date.now();
     const llmResponse = await llmClient.generateWithRetry({
       prompt: user,
       systemPrompt: system,
-      temperature: 0.7 + chaos * 0.2,
+      temperature: 0.7 + difficulty * 0.2,
       maxTokens: 800,
     });
     const duration = Date.now() - startTime;

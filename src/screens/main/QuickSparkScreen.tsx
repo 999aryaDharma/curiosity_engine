@@ -1,4 +1,5 @@
 // src/screens/main/QuickSparkScreen.tsx
+// PERUBAHAN: Gunakan settings.difficultyLevel untuk generate
 
 import React, { useState, useEffect } from "react";
 import {
@@ -32,11 +33,11 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     currentSpark,
     isGenerating,
     error,
-    generateWithMode,
+    generateQuickSpark, // Ini sudah terima difficulty parameter
     toggleSaved,
     markAsViewed,
   } = useSparkStore();
-  const { settings } = useSettingsStore();
+  const { settings } = useSettingsStore(); // ✅ AMBIL SETTINGS
 
   const [showAnswer, setShowAnswer] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -48,10 +49,8 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
 
   useEffect(() => {
     if (currentSpark) {
-      // Mark as viewed
       markAsViewed(currentSpark.id);
 
-      // Animate entrance
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -79,7 +78,8 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     scaleAnim.setValue(0.9);
 
     try {
-      await generateWithMode(1, dailyTags);
+      // ✅ GUNAKAN settings.difficultyLevel
+      await generateQuickSpark(dailyTags, settings.difficultyLevel);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to generate spark");
     }
@@ -118,7 +118,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={["#FFFFFF", "#F0F9FF"]} style={styles.gradient}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -135,7 +134,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
         >
           {!currentSpark ? (
-            // Initial State
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>⚡✨💭</Text>
               <Text style={styles.emptyTitle}>Ready to Spark?</Text>
@@ -143,14 +141,21 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                 Generate a quick curiosity boost based on today's tags
               </Text>
 
+              {/* ✅ TAMPILKAN difficulty LEVEL */}
               <Card variant="elevated" style={styles.infoCard}>
-                <Text style={styles.infoTitle}>🎯 What you'll get:</Text>
+                <Text style={styles.infoTitle}>🎯 Settings:</Text>
                 <Text style={styles.infoItem}>
-                  • A thought-provoking question
+                  • difficulty Level: {Math.round(settings.difficultyLevel * 100)}%
                 </Text>
-                <Text style={styles.infoItem}>• A follow-up to go deeper</Text>
                 <Text style={styles.infoItem}>
-                  • Related concepts to explore
+                  •{" "}
+                  {settings.difficultyLevel < 0.3
+                    ? "Focused mode"
+                    : settings.difficultyLevel < 0.6
+                    ? "Balanced exploration"
+                    : settings.difficultyLevel < 0.8
+                    ? "Creative connections"
+                    : "Maximum creativity"}
                 </Text>
               </Card>
 
@@ -164,17 +169,17 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
               />
             </View>
           ) : (
-            // Spark Display
             <Animated.View
               style={{
                 opacity: fadeAnim,
                 transform: [{ scale: scaleAnim }],
               }}
             >
-              {/* Main Spark */}
               <Card variant="elevated" style={styles.sparkCard}>
                 <LinearGradient
-                  colors={COLORS.gradients.forest as [string, string, ...string[]]}
+                  colors={
+                    COLORS.gradients.forest as [string, string, ...string[]]
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sparkBadge}
@@ -184,7 +189,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
 
                 <Text style={styles.sparkText}>{currentSpark.text}</Text>
 
-                {/* Actions */}
                 <View style={styles.sparkActions}>
                   <TouchableOpacity
                     onPress={handleSave}
@@ -208,7 +212,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                 </View>
               </Card>
 
-              {/* Follow-up Question */}
               {currentSpark.followUp && (
                 <Card variant="outlined" style={styles.followUpCard}>
                   <View style={styles.followUpHeader}>
@@ -247,7 +250,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                 </Card>
               )}
 
-              {/* Concept Links */}
               {currentSpark.conceptLinks &&
                 currentSpark.conceptLinks.length > 0 && (
                   <Card variant="glass" style={styles.conceptsCard}>
@@ -264,7 +266,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                   </Card>
                 )}
 
-              {/* Generate Another */}
               <Button
                 title="Generate Another ⚡"
                 onPress={handleGenerate}
@@ -283,6 +284,7 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   );
 };
 
+// Styles sama seperti sebelumnya
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,9 +1,9 @@
-// src/services/llm/responseValidator.ts
+// src/services/llm/responseValidator.ts - KNOWLEDGE-BASED VALIDATION
 
 import {
-  QuickSparkResponse,
+  QuickLearnResponse,
   DeepDiveResponse,
-  ThreadSparkResponse,
+  KnowledgeGraphResponse,
   SparkValidationResult,
   SparkMode,
 } from "@type/spark.types";
@@ -12,7 +12,7 @@ import { APP_CONFIG } from "@constants/config";
 import { safeJSONParse } from "@/utils/jsonUtils";
 
 class ResponseValidator {
-  validateQuickSpark(response: string): SparkValidationResult {
+  validateQuickLearn(response: string): SparkValidationResult {
     const errors: string[] = [];
 
     let parsed: any;
@@ -25,29 +25,73 @@ class ResponseValidator {
       };
     }
 
-    if (!parsed.spark || typeof parsed.spark !== "string") {
-      errors.push('Missing or invalid "spark" field');
-    } else if (parsed.spark.length > APP_CONFIG.MAX_SPARK_LENGTH) {
+    // Validate question
+    if (!parsed.question || typeof parsed.question !== "string") {
+      errors.push('Missing or invalid "question" field');
+    } else if (parsed.question.length > APP_CONFIG.MAX_SPARK_LENGTH) {
       errors.push(
-        `Spark too long (${parsed.spark.length} > ${APP_CONFIG.MAX_SPARK_LENGTH})`
+        `Question too long (${parsed.question.length} > ${APP_CONFIG.MAX_SPARK_LENGTH})`
       );
-    } else if (parsed.spark.length < APP_CONFIG.MIN_SPARK_LENGTH) {
+    } else if (parsed.question.length < APP_CONFIG.MIN_SPARK_LENGTH) {
       errors.push(
-        `Spark too short (${parsed.spark.length} < ${APP_CONFIG.MIN_SPARK_LENGTH})`
+        `Question too short (${parsed.question.length} < ${APP_CONFIG.MIN_SPARK_LENGTH})`
       );
     }
 
-    if (!parsed.followUp || typeof parsed.followUp !== "string") {
-      errors.push('Missing or invalid "followUp" field');
+    // NEW: Validate philosophical/opinion language (should NOT exist)
+    if (parsed.question) {
+      const bannedPhrases = [
+        "mungkin",
+        "bisa jadi",
+        "seandainya",
+        "bagaimana jika",
+        "menurut anda",
+      ];
+      const hasBannedPhrase = bannedPhrases.some((phrase) =>
+        parsed.question.toLowerCase().includes(phrase)
+      );
+      if (hasBannedPhrase) {
+        errors.push(
+          "Question contains speculative/opinion language - must be factual"
+        );
+      }
     }
 
+    // Validate knowledge (factual explanation)
+    if (!parsed.knowledge || typeof parsed.knowledge !== "string") {
+      errors.push('Missing or invalid "knowledge" field');
+    } else if (parsed.knowledge.length < 80) {
+      errors.push(
+        `Knowledge too short (${parsed.knowledge.length} < 80 words)`
+      );
+    } else if (parsed.knowledge.length > 600) {
+      errors.push(
+        `Knowledge too long (${parsed.knowledge.length} > 600 chars)`
+      );
+    }
+
+    // Validate funFact
+    if (!parsed.funFact || typeof parsed.funFact !== "string") {
+      errors.push('Missing or invalid "funFact" field');
+    } else if (parsed.funFact.length < 20) {
+      errors.push("Fun fact too short");
+    }
+
+    // Validate application
+    if (!parsed.application || typeof parsed.application !== "string") {
+      errors.push('Missing or invalid "application" field');
+    } else if (parsed.application.length < 20) {
+      errors.push("Application too short");
+    }
+
+    // Validate conceptLinks
     if (!Array.isArray(parsed.conceptLinks)) {
       errors.push('Missing or invalid "conceptLinks" field');
     } else if (
       parsed.conceptLinks.length < 2 ||
-      parsed.conceptLinks.length > 5
+      parsed.conceptLinks.length > 4
     ) {
-      errors.push("conceptLinks must have 2-5 items");
+      errors.push("conceptLinks must have 2-4 items");
     } else if (!parsed.conceptLinks.every((c: any) => typeof c === "string")) {
       errors.push("All conceptLinks must be strings");
     }
@@ -56,13 +100,20 @@ class ResponseValidator {
       return { isValid: false, errors };
     }
 
-    const data: QuickSparkResponse = {
-      spark: parsed.spark,
-      followUp: parsed.followUp,
+    const data: QuickLearnResponse = {
+      question: parsed.question,
+      knowledge: parsed.knowledge,
+      funFact: parsed.funFact,
+      application: parsed.application,
       conceptLinks: parsed.conceptLinks,
     };
 
     return { isValid: true, errors: [], data };
+  }
+
+  // Alias for backward compatibility
+  validateQuickSpark(response: string): SparkValidationResult {
+    return this.validateQuickLearn(response);
   }
 
   validateDeepDive(response: string): SparkValidationResult {
@@ -108,6 +159,17 @@ class ResponseValidator {
         errors.push(`Layer ${index}: spark too long`);
       }
 
+      // NEW: Check for factual language
+      if (layer.spark) {
+        const bannedPhrases = ["mungkin", "bisa jadi", "seandainya"];
+        const hasBannedPhrase = bannedPhrases.some((phrase) =>
+          layer.spark.toLowerCase().includes(phrase)
+        );
+        if (hasBannedPhrase) {
+          errors.push(`Layer ${index}: contains speculative language`);
+        }
+      }
+
       if (!Array.isArray(layer.branches)) {
         errors.push(`Layer ${index}: missing or invalid "branches" field`);
       } else if (
@@ -132,7 +194,7 @@ class ResponseValidator {
     return { isValid: true, errors: [], data };
   }
 
-  validateThreadSpark(response: string): SparkValidationResult {
+  validateKnowledgeGraph(response: string): SparkValidationResult {
     const errors: string[] = [];
 
     let parsed: any;
@@ -157,17 +219,31 @@ class ResponseValidator {
       );
     }
 
+    // NEW: Validate factual language
+    if (parsed.newSpark) {
+      const bannedPhrases = [
+        "mungkin",
+        "bisa jadi",
+        "seandainya",
+        "bagaimana jika",
+      ];
+      const hasBannedPhrase = bannedPhrases.some((phrase) =>
+        parsed.newSpark.toLowerCase().includes(phrase)
+      );
+      if (hasBannedPhrase) {
+        errors.push("Spark contains speculative language - must connect facts");
+      }
+    }
+
     if (!Array.isArray(parsed.conceptReinforcement)) {
       errors.push('Missing or invalid "conceptReinforcement" field');
     } else if (
       parsed.conceptReinforcement.length < 1 ||
       parsed.conceptReinforcement.length > 10
     ) {
-      // Allow more flexible range, and handle the case where AI might generate too many or too few
       if (parsed.conceptReinforcement.length === 0) {
         errors.push("conceptReinforcement must have at least 1 item");
       }
-      // If there are too many, we'll just take the first 5
     } else if (
       !parsed.conceptReinforcement.every((c: any) => typeof c === "string")
     ) {
@@ -178,21 +254,18 @@ class ResponseValidator {
       return { isValid: false, errors };
     }
 
-    // Ensure conceptReinforcement has 2-5 items as originally required
+    // Ensure 2-4 concepts
     let finalConceptReinforcement = parsed.conceptReinforcement;
-
     if (finalConceptReinforcement.length < 2) {
-      // Pad with default values if too few
       const needed = 2 - finalConceptReinforcement.length;
       for (let i = 0; i < needed; i++) {
         finalConceptReinforcement.push(`concept-${Date.now()}-${i}`);
       }
-    } else if (finalConceptReinforcement.length > 5) {
-      // Take only first 5 if too many
-      finalConceptReinforcement = finalConceptReinforcement.slice(0, 5);
+    } else if (finalConceptReinforcement.length > 4) {
+      finalConceptReinforcement = finalConceptReinforcement.slice(0, 4);
     }
 
-    const data: ThreadSparkResponse = {
+    const data: KnowledgeGraphResponse = {
       clusterSummary: parsed.clusterSummary,
       newSpark: parsed.newSpark,
       conceptReinforcement: finalConceptReinforcement,
@@ -201,14 +274,19 @@ class ResponseValidator {
     return { isValid: true, errors: [], data };
   }
 
+  // Alias for backward compatibility
+  validateThreadSpark(response: string): SparkValidationResult {
+    return this.validateKnowledgeGraph(response);
+  }
+
   validateByMode(response: string, mode: SparkMode): SparkValidationResult {
     switch (mode) {
       case 1:
-        return this.validateQuickSpark(response);
+        return this.validateQuickLearn(response);
       case 2:
         return this.validateDeepDive(response);
       case 3:
-        return this.validateThreadSpark(response);
+        return this.validateKnowledgeGraph(response);
       default:
         return {
           isValid: false,
@@ -319,8 +397,8 @@ class ResponseValidator {
 
     if (!parsed.explanation || typeof parsed.explanation !== "string") {
       errors.push('Missing or invalid "explanation" field');
-    } else if (parsed.explanation.length < 100) {
-      errors.push("Explanation too short (min 100 chars)");
+    } else if (parsed.explanation.length < 150) {
+      errors.push("Explanation too short (min 150 chars for factual depth)");
     }
 
     if (!Array.isArray(parsed.questions)) {

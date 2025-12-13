@@ -18,37 +18,39 @@ export const useSparkGeneration = () => {
   } = useSparkStore();
 
   const { settings } = useSettingsStore();
-  const [customChaos, setCustomChaos] = useState<number | null>(null);
 
+  // Tidak perlu customdifficulty lagi, langsung pakai dari settings
   const generate = useCallback(
     async (
       mode: SparkMode,
       tags: Tag[],
       options?: {
         layers?: number;
-        chaos?: number;
+        difficulty?: number; // Optional override
       }
     ) => {
       if (tags.length === 0) {
         throw new Error("At least one tag is required");
       }
 
-      const chaos = options?.chaos ?? customChaos ?? settings.chaosLevel;
+      // Gunakan difficulty dari options kalau ada, kalau tidak pakai dari settings
+      const difficulty = options?.difficulty ?? settings.difficultyLevel;
 
       clearCurrentSpark();
 
       switch (mode) {
         case 1:
-          await generateQuickSpark(tags, chaos);
+          await generateQuickSpark(tags, difficulty);
           break;
 
         case 2:
+          // Gunakan layers dari options atau settings
           const layers = options?.layers ?? settings.maxDeepDiveLayers;
-          await generateDeepDive(tags, layers, chaos);
+          await generateDeepDive(tags, layers, difficulty);
           break;
 
         case 3:
-          await generateThreadSpark(tags, chaos);
+          await generateThreadSpark(tags, difficulty);
           break;
 
         default:
@@ -56,8 +58,7 @@ export const useSparkGeneration = () => {
       }
     },
     [
-      customChaos,
-      settings.chaosLevel,
+      settings.difficultyLevel,
       settings.maxDeepDiveLayers,
       generateQuickSpark,
       generateDeepDive,
@@ -82,25 +83,15 @@ export const useSparkGeneration = () => {
     await generate(mode, tags as any);
   }, [currentSpark, generate]);
 
-  const updateChaos = useCallback((chaos: number) => {
-    const clamped = Math.max(0, Math.min(1, chaos));
-    setCustomChaos(clamped);
-  }, []);
-
-  const resetChaos = useCallback(() => {
-    setCustomChaos(null);
-  }, []);
-
   return {
     currentSpark,
     isGenerating,
     error,
-    chaos: customChaos ?? settings.chaosLevel,
+    difficulty: settings.difficultyLevel,
+    maxLayers: settings.maxDeepDiveLayers,
     generate,
     generateWithMode,
     regenerate,
-    updateChaos,
-    resetChaos,
     clearSpark: clearCurrentSpark,
   };
 };

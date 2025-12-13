@@ -21,19 +21,19 @@ interface SparkState {
     (
       mode: 1 | 2 | 3,
       tags: Tag[],
-      options?: { chaos?: number; layers?: number }
+      options?: { difficulty?: number; layers?: number }
     ): Promise<void>;
   };
-  generateQuickSpark: (tags: Tag[], chaos?: number) => Promise<void>;
+  generateQuickSpark: (tags: Tag[], difficulty?: number) => Promise<void>;
   generateDeepDive: (
     tags: Tag[],
     layers?: number,
-    chaos?: number
+    difficulty?: number
   ) => Promise<void>;
-  generateThreadSpark: (tags: Tag[], chaos?: number) => Promise<void>;
+  generateThreadSpark: (tags: Tag[], difficulty?: number) => Promise<void>;
   generateThreadSparkFromCluster: (
     clusterId: string,
-    chaos?: number
+    difficulty?: number
   ) => Promise<void>;
 
   loadRecentSparks: (limit?: number) => Promise<void>;
@@ -52,10 +52,10 @@ export const useSparkStore = create<SparkState>((set, get) => ({
   isGenerating: false,
   error: null,
 
-  generateQuickSpark: async (tags: Tag[], chaos = 0.5) => {
+  generateQuickSpark: async (tags: Tag[], difficulty = 0.5) => {
     set({ isGenerating: true, error: null });
     try {
-      const spark = await sparkGenerator.generateQuickSpark(tags, chaos);
+      const spark = await sparkGenerator.generateQuickSpark(tags, difficulty);
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
       set({ currentSpark: spark });
       await get().loadRecentSparks();
@@ -69,10 +69,10 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     }
   },
 
-  generateDeepDive: async (tags: Tag[], layers = 4, chaos = 0.5) => {
+  generateDeepDive: async (tags: Tag[], layers = 4, difficulty = 0.5) => {
     set({ isGenerating: true, error: null });
     try {
-      const spark = await sparkGenerator.generateDeepDive(tags, layers, chaos);
+      const spark = await sparkGenerator.generateDeepDive(tags, layers, difficulty);
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
       set({ currentSpark: spark });
       await get().loadRecentSparks();
@@ -86,7 +86,7 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     }
   },
 
-  generateThreadSpark: async (tags: Tag[], chaos = 0.5) => {
+  generateThreadSpark: async (tags: Tag[], difficulty = 0.5) => {
     set({ isGenerating: true, error: null });
     try {
       const { useThreadStore } = await import("./threadStore");
@@ -97,7 +97,7 @@ export const useSparkStore = create<SparkState>((set, get) => ({
         tags,
         clusters,
         recentSparks,
-        chaos
+        difficulty
       );
 
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
@@ -116,12 +116,12 @@ export const useSparkStore = create<SparkState>((set, get) => ({
     }
   },
 
-  generateThreadSparkFromCluster: async (clusterId: string, chaos = 0.5) => {
+  generateThreadSparkFromCluster: async (clusterId: string, difficulty = 0.5) => {
     set({ isGenerating: true, error: null });
     try {
       const spark = await sparkGenerator.generateThreadSparkFromCluster(
         clusterId,
-        chaos
+        difficulty
       );
 
       await conceptGraphEngine.processSparkConcepts(spark.id, spark.text);
@@ -213,22 +213,22 @@ export const useSparkStore = create<SparkState>((set, get) => ({
   generateWithMode: async (
     mode: 1 | 2 | 3,
     tags: Tag[],
-    options?: { chaos?: number; layers?: number } | undefined
+    options?: { difficulty?: number; layers?: number } | undefined
   ) => {
     set({ isGenerating: true, error: null });
-    const chaos = options?.chaos ?? 0.5;
+    const difficulty = options?.difficulty ?? 0.5;
     const layers = options?.layers;
 
     try {
       switch (mode) {
         case 1:
-          await get().generateQuickSpark(tags, chaos);
+          await get().generateQuickSpark(tags, difficulty);
           break;
         case 2:
-          await get().generateDeepDive(tags, layers, chaos);
+          await get().generateDeepDive(tags, layers, difficulty);
           break;
         case 3:
-          await get().generateThreadSpark(tags, chaos);
+          await get().generateThreadSpark(tags, difficulty);
           break;
         default:
           throw new Error(`Invalid mode: ${mode}`);

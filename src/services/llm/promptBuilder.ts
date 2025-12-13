@@ -1,253 +1,246 @@
-// src/services/llm/promptBuilder.ts
+// src/services/llm/promptBuilder.ts - KNOWLEDGE-BASED VERSION
 
 import { Tag } from "@type/tag.types";
-import { Spark, SparkMode } from "@type/spark.types";
+import { Spark } from "@type/spark.types";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
 import { DeepDiveLayer } from "@/types/deepdive.types";
 
 class PromptBuilder {
-  buildQuickSparkPrompt(
+  buildQuickLearnPrompt(
     tags: Tag[],
-    chaos: number
+    difficulty: number // 0.0-1.0 (0=beginner, 1=expert)
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine, designed to generate thought-provoking questions that spark intellectual curiosity.
+    const system = `You are an educational knowledge generator. Your task is to create FACTUAL, EDUCATIONAL content that teaches specific knowledge.
 
-Your task is to create a single "spark" - a question or observation that:
-- Connects multiple concepts in unexpected ways
-- Encourages deep thinking without being overwhelming
-- Is concise (under 280 characters)
-- Feels fresh and non-obvious
-- Includes a brief context or "why this matters"
-- MUST BE IN INDONESIAN LANGUAGE
-
-Output ONLY valid JSON with this exact structure:
+YOUR OUTPUT FORMAT (STRICT JSON):
 {
-  "spark": "The main curiosity-triggering question or observation in Indonesian",
-  "followUp": "A deeper follow-up question to explore further in Indonesian",
+  "question": "Clear factual question in Indonesian",
+  "knowledge": "Factual explanation 80-150 words in Indonesian",
+  "funFact": "Interesting trivia related to the topic in Indonesian",
+  "application": "How this knowledge is useful in real life in Indonesian",
   "conceptLinks": ["concept1", "concept2", "concept3"]
 }
 
-Rules:
-- spark must be under 280 characters
-- followUp should dig one layer deeper
-- conceptLinks MUST contain exactly 2-4 abstract concepts (no more, no less)
-- Each concept should be a single word or short phrase (2-3 words max)
-- Be creative and unexpected
-- Avoid clichés and obvious connections
-- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+RULES - CRITICAL:
+1. Question MUST be answerable with FACTS, not opinions
+2. Knowledge MUST contain verified information, specific data, concrete examples
+3. Avoid philosophical speculation - focus on WHAT IS, HOW IT WORKS, WHY IT HAPPENS
+4. Use clear, educational language
+5. Fun fact must be surprising but TRUE
+6. Application must be practical and relevant
+7. ALL TEXT MUST BE IN INDONESIAN
+8. conceptLinks MUST be 2-4 concrete concepts (not abstract)
+
+DIFFICULTY LEVEL: ${this.describeDifficultyLevel(difficulty)}
+
+BANNED PHRASES: "mungkin", "bisa jadi", "seandainya", "bagaimana jika"
+USE INSTEAD: "adalah", "terjadi karena", "berfungsi dengan", "menghasilkan"`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
-    const chaosLevel = this.describeChaosLevel(chaos);
+    const difficultyLabel = this.describeDifficultyLevel(difficulty);
 
-    const user = `Generate a curiosity spark using these tags: ${tagNames}
+    const user = `Generate educational content about: ${tagNames}
 
-Chaos level: ${chaosLevel}
+Difficulty: ${difficultyLabel}
 ${
-  chaos > 0.5
-    ? "Make unexpected connections between seemingly unrelated concepts."
-    : "Focus on coherent, related concepts."
+  difficulty < 0.3
+    ? "Focus on basic facts and fundamental concepts suitable for beginners."
+    : difficulty < 0.7
+    ? "Include intermediate-level details with some technical depth."
+    : "Provide advanced insights with complex mechanisms and edge cases."
 }
 
-Remember: Output ONLY the JSON object, no explanations.`;
+EXAMPLES OF GOOD QUESTIONS:
+- "Mengapa air mendidih pada suhu 100°C?"
+- "Bagaimana antibiotik membunuh bakteri?"
+- "Apa yang menyebabkan aurora borealis?"
+
+BAD QUESTIONS (DO NOT GENERATE):
+- "Apakah kesadaran manusia itu nyata?"
+- "Bagaimana kita mendefinisikan kebahagiaan?"
+
+Remember: Output ONLY the JSON object. NO explanations outside JSON.`;
 
     return { system, user };
   }
 
   buildDeepDivePrompt(
     tags: Tag[],
-    chaos: number,
+    difficulty: number,
     layers: number
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine's Deep Dive mode, creating multi-layer exploratory paths.
+    const system = `You are creating a PROGRESSIVE KNOWLEDGE JOURNEY with ${layers} layers of increasing depth.
 
-Generate a sequence of ${layers} layers, where each layer:
-- Builds on the previous layer's concept
-- Offers 2 branching paths for exploration
-- Gets progressively more specific or abstract
-- Maintains intellectual coherence
-- MUST BE IN INDONESIAN LANGUAGE
+Each layer builds factual understanding step-by-step:
+- Layer 1: Basic facts and definitions
+- Layer 2: How it works (mechanisms)
+- Layer 3: Real-world examples and applications
+- Layer 4+: Advanced insights, exceptions, cutting-edge knowledge
 
-Output ONLY valid JSON with this exact structure:
+OUTPUT FORMAT (STRICT JSON):
 {
   "layers": [
     {
       "layer": 1,
-      "spark": "Initial question or observation in Indonesian",
-      "branches": ["Path A: description in Indonesian", "Path B: description in Indonesian"]
-    },
-    {
-      "layer": 2,
-      "spark": "Deeper question building on layer 1 in Indonesian",
-      "branches": ["Path A: description in Indonesian", "Path B: description in Indonesian"]
+      "spark": "Foundational question in Indonesian",
+      "branches": ["Branch A: specific angle in Indonesian", "Branch B: alternative angle in Indonesian"]
     }
   ]
 }
 
-Rules:
-- Each spark under 280 characters
-- Branches should represent genuinely different directions
-- Later layers should feel like going down a rabbit hole
-- Maintain curiosity throughout
-- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+RULES:
+- Each spark MUST be educational and factual
+- Branches offer different aspects to explore (not just opinions)
+- Progressive depth: each layer goes deeper than the last
+- Use concrete examples, data, and verified information
+- ALL TEXT IN INDONESIAN
+- Difficulty: ${this.describeDifficultyLevel(difficulty)}`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
-    const chaosLevel = this.describeChaosLevel(chaos);
 
-    const user = `Create a ${layers}-layer deep dive using these tags: ${tagNames}
+    const user = `Create a ${layers}-layer knowledge journey about: ${tagNames}
 
-Chaos level: ${chaosLevel}
+Difficulty: ${this.describeDifficultyLevel(difficulty)}
 
-Each layer should naturally flow from the previous one while offering distinct paths forward.
+Structure example:
+Layer 1: "Apa itu fotosintesis?" → Branches: [how it works, why it matters]
+Layer 2: "Bagaimana klorofil menangkap cahaya?" → Branches: [light absorption, energy conversion]
+Layer 3: "Mengapa tanaman berbeda warna?" → Branches: [pigments, adaptations]
+Layer 4: "Bagaimana C4 plants lebih efisien?" → Branches: [mechanism, evolution]
 
-Remember: Output ONLY the JSON object.`;
+Each layer should naturally deepen understanding.
+
+Output ONLY the JSON object.`;
 
     return { system, user };
   }
 
-  buildThreadSparkPrompt(
+  buildKnowledgeGraphPrompt(
     tags: Tag[],
     clusters: ConceptCluster[],
     recentSparks: Spark[],
-    chaos: number
+    difficulty: number
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine's Thread mode, generating sparks based on existing concept clusters.
+    const system = `You generate KNOWLEDGE CONNECTIONS - showing how different fields of knowledge relate through FACTS.
 
-Your task is to:
-- Analyze the user's existing conceptual map
-- Identify interesting connections or gaps
-- Generate a spark that either:
-  * Deepens understanding of a dominant cluster
-  * Connects multiple clusters in novel ways
-  * Explores an underdeveloped area
-- ALL CONTENT MUST BE IN INDONESIAN LANGUAGE
+YOUR TASK:
+1. Analyze existing knowledge domains the user has explored
+2. Identify a meaningful connection between 2+ domains
+3. Create a question that bridges these domains with FACTUAL relationships
+4. Provide concrete examples of how these fields interconnect
 
-Output ONLY valid JSON with this exact structure:
+OUTPUT FORMAT (STRICT JSON):
 {
-  "clusterSummary": "Brief analysis of the concept landscape in Indonesian (1-2 sentences)",
-  "newSpark": "A question or observation that builds on existing concepts in Indonesian",
-  "conceptReinforcement": ["existing_concept1", "existing_concept2", "new_concept"]
+  "clusterSummary": "Brief analysis of knowledge domains in Indonesian (1-2 sentences)",
+  "newSpark": "A question connecting multiple domains in Indonesian",
+  "conceptReinforcement": ["concept1", "concept2", "new_connecting_concept"]
 }
 
-Rules:
-- conceptReinforcement MUST contain exactly 2-4 concepts (no more, no less)
-- Each concept in conceptReinforcement should be a single word or short phrase (2-3 words max)
-- Reference concepts the user has already explored
-- Make it feel like a natural continuation of their journey
-- Spark should be under 280 characters
-- Balance familiarity with novelty
-- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+RULES:
+- Connection must be FACTUAL and verifiable
+- Show real-world examples where domains intersect
+- Avoid vague philosophical connections
+- Focus on HOW knowledge from one field APPLIES to another
+- ALL TEXT IN INDONESIAN
+- conceptReinforcement: 2-4 items (concrete concepts only)`;
 
     const tagNames = tags.map((t) => t.name).join(", ");
     const clusterSummary = clusters
-      .map(
-        (c) =>
-          `${c.name}: ${
-            c.concepts.length
-          } concepts, coherence ${c.coherence.toFixed(2)}`
-      )
-      .join("\n");
+      .map((c) => `${c.name}: ${c.concepts.length} konsep`)
+      .join(", ");
 
     const recentSparksSummary = recentSparks
-      .slice(0, 5)
-      .map((s) => `- ${s.text.substring(0, 100)}...`)
+      .slice(0, 3)
+      .map((s) => `- ${s.text.substring(0, 80)}...`)
       .join("\n");
 
-    const user = `Current tags: ${tagNames}
+    const user = `Current knowledge domains: ${tagNames}
 
-Existing concept clusters:
+Explored clusters:
 ${clusterSummary || "No clusters yet"}
 
-Recent sparks:
+Recent learning:
 ${recentSparksSummary || "No recent sparks"}
 
-Chaos level: ${this.describeChaosLevel(chaos)}
+Difficulty: ${this.describeDifficultyLevel(difficulty)}
 
-Generate a spark that builds on this conceptual landscape.
+EXAMPLE OF GOOD KNOWLEDGE GRAPH QUESTION:
+"Bagaimana prinsip aerodinamika (Physics) digunakan dalam evolusi burung (Biology) 
+ dan menginspirasi desain pesawat (Engineering)?"
 
-Remember: Output ONLY the JSON object.`;
+Generate a question that CONNECTS different knowledge domains with factual relationships.
+
+Output ONLY the JSON object.`;
 
     return { system, user };
   }
 
-  // NEW: Prompt khusus untuk Thread Spark dari Cluster
-  buildThreadSparkFromClusterPrompt(
+  buildKnowledgeGraphFromClusterPrompt(
     cluster: ConceptCluster,
     conceptNodes: ConceptNode[],
     historySparks: Spark[],
-    chaos: number
+    difficulty: number
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine's Thread mode, continuing exploration within a specific concept cluster.
+    const system = `You are continuing a KNOWLEDGE JOURNEY within the "${
+      cluster.name
+    }" domain.
 
-Your task is to generate a NEW spark that:
-1. BUILDS ON existing concepts in the cluster "${cluster.name}"
-2. EXTENDS the thread by introducing related but fresh angles
-3. MAINTAINS coherence with cluster theme (${Math.round(
-      cluster.coherence * 100
-    )}% coherent)
-4. ADDS ${Math.round(chaos * 100)}% serendipity to avoid echo chamber
-5. MUST BE IN INDONESIAN LANGUAGE
+Your task:
+1. Build on existing knowledge in this cluster
+2. Introduce NEW factual information that extends understanding
+3. Maintain ${Math.round(cluster.coherence * 100)}% coherence with the theme
+4. Add ${Math.round(difficulty * 100)}% difficulty/depth
 
-This is NOT a random spark. This is a continuation of an intellectual journey.
-
-Output ONLY valid JSON:
+OUTPUT FORMAT (STRICT JSON):
 {
-  "clusterSummary": "Brief 1-sentence analysis of this cluster's theme in Indonesian",
-  "newSpark": "A question that extends this thread in Indonesian (under 280 chars)",
-  "conceptReinforcement": ["concept1_from_cluster", "concept2_from_cluster", "new_concept_to_add"]
+  "clusterSummary": "Brief 1-sentence analysis of this knowledge domain in Indonesian",
+  "newSpark": "Educational question extending this domain in Indonesian (under 280 chars)",
+  "conceptReinforcement": ["existing_concept1", "existing_concept2", "new_concept"]
 }
 
-Rules:
-- Reference at least 2 existing concepts from this cluster
-- Introduce 1 new concept that enriches the cluster
-- Keep it intellectually stimulating but not overwhelming
-- The spark should feel like "chapter ${
-      cluster.sparkCount + 1
-    }" of this exploration
-- ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+RULES:
+- Reference at least 2 concepts already in this cluster
+- Introduce 1 NEW factual concept that enriches the domain
+- Question must be EDUCATIONAL and FACTUAL
+- ALL TEXT IN INDONESIAN
+- This is knowledge chapter ${cluster.sparkCount + 1}`;
 
-    // Extract concept names
     const conceptNames = conceptNodes.map((n) => n.name).join(", ");
-
-    // Extract dominant concepts (top 3 by weight)
     const dominantConcepts = conceptNodes
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 3)
-      .map((n) => `${n.name} (weight: ${n.weight.toFixed(2)})`)
+      .map((n) => n.name)
       .join(", ");
 
-    // Extract recent spark excerpts
     const recentSparksSummary =
       historySparks.length > 0
         ? historySparks
             .slice(0, 3)
             .map((s, i) => `${i + 1}. "${s.text.substring(0, 80)}..."`)
             .join("\n")
-        : "No previous sparks in this cluster yet.";
+        : "No previous learning in this domain yet.";
 
-    const user = `CLUSTER: "${cluster.name}"
+    const user = `KNOWLEDGE DOMAIN: "${cluster.name}"
 Coherence: ${Math.round(cluster.coherence * 100)}%
-Total sparks: ${cluster.sparkCount}
-Concepts (${conceptNodes.length}): ${conceptNames}
+Learning progress: ${cluster.sparkCount} sparks explored
+Concepts: ${conceptNames}
 
-DOMINANT CONCEPTS:
+DOMINANT THEMES:
 ${dominantConcepts}
 
-RECENT SPARKS IN THIS CLUSTER:
+RECENT LEARNING:
 ${recentSparksSummary}
 
-CHAOS LEVEL: ${this.describeChaosLevel(chaos)}
+DIFFICULTY: ${this.describeDifficultyLevel(difficulty)}
 
-Generate a spark that:
-- Continues the exploration of "${cluster.name}"
-- References existing concepts: ${dominantConcepts.split(",")[0]}, ${
-      dominantConcepts.split(",")[1] || conceptNames.split(",")[0]
+Generate educational content that:
+- Builds on concepts: ${dominantConcepts.split(", ")[0]}, ${
+      dominantConcepts.split(", ")[1] || conceptNames.split(", ")[0]
     }
-- Introduces 1 new related concept
-- Maintains ${Math.round((1 - chaos) * 100)}% coherence, ${Math.round(
-      chaos * 100
-    )}% novelty
+- Introduces 1 new related concept with factual information
+- Maintains domain coherence while adding depth
 
-Remember: Output ONLY the JSON object.`;
+Output ONLY the JSON object.`;
 
     return { system, user };
   }
@@ -256,47 +249,50 @@ Remember: Output ONLY the JSON object.`;
     system: string;
     user: string;
   } {
-    const system = `You extract key concepts from curiosity sparks in Indonesian.
+    const system = `You extract KEY KNOWLEDGE CONCEPTS from educational content in Indonesian.
 
-Identify 2-5 abstract concepts that are central to the question or observation.
+Identify 2-5 concrete concepts that represent the main knowledge areas.
 Concepts should be:
-- Abstract and generalizable (e.g., "time", "identity", "emergence")
-- Not too specific (avoid proper nouns unless critical)
-- Intellectually meaningful
-- Related to the core idea
-- When possible, use Indonesian-related concepts or translate concepts to Indonesian
+- Specific and concrete (e.g., "fotosintesis", "hukum gravitasi", "DNA")
+- Knowledge domains or fields (e.g., "biologi sel", "mekanika klasik")
+- NOT vague or abstract (avoid "kesadaran", "eksistensi")
+- Factual terms that can be studied
 
-Output ONLY valid JSON:
+OUTPUT ONLY valid JSON:
 {
   "concepts": ["concept1", "concept2", "concept3"]
 }`;
 
-    const user = `Extract key concepts from this Indonesian spark:
+    const user = `Extract key knowledge concepts from this Indonesian spark:
 
 "${sparkText}"
 
-Remember: Output ONLY the JSON object with 2-5 concepts.`;
+Remember: Output ONLY the JSON object with 2-5 concrete concepts.`;
 
     return { system, user };
   }
 
-  private describeChaosLevel(chaos: number): string {
-    if (chaos < 0.2) return "Minimal - stay close to tag themes";
-    if (chaos < 0.5) return "Low - slight creative connections";
-    if (chaos < 0.8) return "Medium - unexpected but logical leaps";
-    return "High - maximum creative freedom, surprising connections";
+  private describeDifficultyLevel(difficulty: number): string {
+    if (difficulty < 0.2)
+      return "Beginner - Basic facts and simple explanations";
+    if (difficulty < 0.4)
+      return "Elementary - Fundamental concepts with some detail";
+    if (difficulty < 0.6)
+      return "Intermediate - Technical depth with mechanisms";
+    if (difficulty < 0.8) return "Advanced - Complex systems and edge cases";
+    return "Expert - Cutting-edge knowledge and specialized insights";
   }
 
-  buildSystemPromptForMode(mode: SparkMode): string {
+  buildSystemPromptForMode(mode: 1 | 2 | 3): string {
     switch (mode) {
       case 1:
-        return "You generate quick, single-layer curiosity sparks.";
+        return "You generate factual, educational flashcard-style content.";
       case 2:
-        return "You generate deep, multi-layer exploration paths.";
+        return "You generate progressive knowledge layers building from basics to advanced.";
       case 3:
-        return "You generate sparks that build on existing concept threads.";
+        return "You generate questions connecting multiple knowledge domains with facts.";
       default:
-        return "You generate curiosity sparks.";
+        return "You generate educational knowledge content.";
     }
   }
 
@@ -304,51 +300,50 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
     cluster: ConceptCluster,
     conceptNodes: ConceptNode[],
     historySparks: Spark[],
-    chaos: number
+    difficulty: number
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine's Thread mode, generating a THREAD PACK - a connected set of sparks that continue an intellectual journey.
-  
-  IMPORTANT: You are generating 4 connected sparks as one cohesive exploration package:
-  
-  1. CONTINUATION SPARK - Direct logical next step
-  2. DERIVED SPARK 1 - Alternative angle from same base
-  3. DERIVED SPARK 2 - Another alternative perspective
-  4. WILDCARD SPARK - Serendipitous connection (${Math.round(
-    chaos * 100
-  )}% chaos)
-  
-  ALL sparks must:
-  - Build on cluster "${cluster.name}" theme
-  - Reference existing concepts
-  - Connect to each other logically
-  - MUST BE IN INDONESIAN LANGUAGE
-  - Each under 280 characters
-  
-  Output ONLY valid JSON:
-  {
-    "clusterSummary": "Brief analysis of cluster theme in Indonesian",
-    "continuationSpark": "Main next step question in Indonesian",
-    "derivedSparks": [
-      "Alternative angle 1 in Indonesian",
-      "Alternative angle 2 in Indonesian"
-    ],
-    "wildcardSpark": "Unexpected connection in Indonesian",
-    "conceptReinforcement": ["concept1", "concept2", "new_concept"]
-  }
-  
-  Rules:
-  - Continuation builds directly on most recent spark
-  - Derived sparks offer parallel explorations
-  - Wildcard introduces controlled novelty
-  - All 4 sparks should feel like chapters of one exploration
-  - ALL TEXT MUST BE IN INDONESIAN LANGUAGE`;
+    const system = `You are generating a KNOWLEDGE PACK - 4 connected educational questions continuing a learning journey.
+
+STRUCTURE:
+1. CONTINUATION SPARK - Direct next step building on recent learning
+2. DERIVED SPARK 1 - Alternative angle exploring the same domain
+3. DERIVED SPARK 2 - Another perspective on the domain
+4. WILDCARD SPARK - Connection to a different but related field (${Math.round(
+      difficulty * 100
+    )}% difficulty)
+
+ALL sparks must:
+- Be FACTUAL and EDUCATIONAL
+- Build on cluster "${cluster.name}" theme
+- Reference existing concepts
+- Teach something NEW and CONCRETE
+- ALL IN INDONESIAN
+- Each under 280 characters
+
+OUTPUT ONLY valid JSON:
+{
+  "clusterSummary": "Brief analysis of knowledge domain in Indonesian",
+  "continuationSpark": "Main next step question in Indonesian",
+  "derivedSparks": [
+    "Alternative angle in Indonesian",
+    "Another perspective in Indonesian"
+  ],
+  "wildcardSpark": "Cross-domain connection in Indonesian",
+  "conceptReinforcement": ["concept1", "concept2", "new_concept"]
+}
+
+RULES:
+- Continuation builds directly on most recent learning
+- Derived sparks offer parallel explorations of the same domain
+- Wildcard introduces controlled novelty from related field
+- All 4 sparks = one cohesive learning journey
+- ALL TEXT IN INDONESIAN`;
 
     const conceptNames = conceptNodes.map((n) => n.name).join(", ");
-
     const dominantConcepts = conceptNodes
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 3)
-      .map((n) => `${n.name} (weight: ${n.weight.toFixed(2)})`)
+      .map((n) => n.name)
       .join(", ");
 
     const recentSparksSummary =
@@ -357,35 +352,35 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
             .slice(0, 3)
             .map((s, i) => `${i + 1}. "${s.text.substring(0, 80)}..."`)
             .join("\n")
-        : "No previous sparks in this cluster yet.";
+        : "No previous learning in this domain yet.";
 
     const mostRecentSpark = historySparks[0]?.text || "No previous spark";
 
-    const user = `CLUSTER: "${cluster.name}"
-  Coherence: ${Math.round(cluster.coherence * 100)}%
-  Journey progress: ${cluster.sparkCount} sparks explored
-  Concepts: ${conceptNames}
-  
-  DOMINANT THEMES:
-  ${dominantConcepts}
-  
-  MOST RECENT SPARK:
-  "${mostRecentSpark}"
-  
-  PREVIOUS SPARKS:
-  ${recentSparksSummary}
-  
-  CHAOS LEVEL: ${this.describeChaosLevel(chaos)}
-  
-  Generate a Thread Pack of 4 connected sparks:
-  1. CONTINUATION: Natural next question after most recent spark
-  2. DERIVED 1: Alternative angle on same theme
-  3. DERIVED 2: Another perspective on theme
-  4. WILDCARD: Unexpected but related connection
-  
-  Make them feel like one cohesive exploration with 4 chapters.
-  
-  Remember: Output ONLY the JSON object.`;
+    const user = `KNOWLEDGE DOMAIN: "${cluster.name}"
+Coherence: ${Math.round(cluster.coherence * 100)}%
+Learning progress: ${cluster.sparkCount} sparks explored
+Concepts: ${conceptNames}
+
+DOMINANT THEMES:
+${dominantConcepts}
+
+MOST RECENT LEARNING:
+"${mostRecentSpark}"
+
+PREVIOUS LEARNING:
+${recentSparksSummary}
+
+DIFFICULTY: ${this.describeDifficultyLevel(difficulty)}
+
+Generate a Knowledge Pack of 4 connected educational questions:
+1. CONTINUATION: Natural next learning step after most recent
+2. DERIVED 1: Alternative angle on same theme (factual)
+3. DERIVED 2: Another perspective on theme (factual)
+4. WILDCARD: Connection to related domain (factual)
+
+Make them feel like one cohesive learning journey with 4 chapters.
+
+Output ONLY the JSON object.`;
 
     return { system, user };
   }
@@ -394,34 +389,31 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
     seedSparkText: string,
     currentLayer: number,
     previousLayers: DeepDiveLayer[],
-    chaos: number
+    difficulty: number
   ): { system: string; user: string } {
-    const system = `You are the Curiosity Engine's Deep Dive mode. You create progressive layers that deepen understanding of ONE spark.
-  
-  LAYER ${currentLayer} STRUCTURE:
-  {
-    "explanation": "Core explanation in Indonesian (1 paragraph, 150-200 words)",
-    "questions": ["Question 1 in Indonesian", "Question 2 in Indonesian"],
-    "analogy": "Illustrative analogy in Indonesian (optional)",
-    "observation": "Unique insight/observation path in Indonesian"
-  }
-  
-  PROGRESSION RULES:
-  - Layer 1: Surface explanation + obvious questions
-  - Layer 2: Mechanisms + contradictions
-  - Layer 3: Real-world scenarios + parallels
-  - Layer 4+: Abstract connections + "mind-bending" insights
-  - Later layers = MORE specific + MORE conceptual
-  - NEVER repeat previous layers
-  - ALL TEXT IN INDONESIAN
-  
-  Depth increases like:
-  Layer 1: "What is X?"
-  Layer 2: "How does X work underneath?"
-  Layer 3: "Why does X behave this way?"
-  Layer 4: "What if X wasn't X?"
-  
-  Output ONLY valid JSON.`;
+    const system = `You are creating KNOWLEDGE LAYER ${currentLayer} - deepening understanding progressively.
+
+LAYER ${currentLayer} STRUCTURE:
+{
+  "explanation": "Factual explanation in Indonesian (150-250 words)",
+  "questions": ["Question 1 in Indonesian", "Question 2 in Indonesian"],
+  "analogy": "Helpful analogy in Indonesian (optional)",
+  "observation": "Interesting insight in Indonesian"
+}
+
+PROGRESSION BY LAYER:
+- Layer 1: Basic facts + definitions (what it is)
+- Layer 2: Mechanisms + how it works (why it happens)
+- Layer 3: Real-world examples + applications (where we see it)
+- Layer 4+: Advanced concepts + edge cases (complex scenarios)
+
+RULES:
+- Explanation MUST contain FACTUAL information
+- Use specific data, numbers, examples
+- Questions should guide further learning
+- NEVER repeat previous layers
+- ALL TEXT IN INDONESIAN
+- Difficulty: ${this.describeDifficultyLevel(difficulty)}`;
 
     const previousContent =
       previousLayers.length > 0
@@ -429,34 +421,34 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
             .map(
               (l) =>
                 `LAYER ${l.layer}:
-  Explanation: ${l.explanation.substring(0, 100)}...
-  Questions: ${l.questions.join(", ")}`
+Explanation: ${l.explanation.substring(0, 100)}...
+Questions: ${l.questions.join(", ")}`
             )
             .join("\n\n")
         : "No previous layers.";
 
-    const user = `SEED SPARK:
-  "${seedSparkText}"
-  
-  CURRENT LAYER: ${currentLayer}
-  ${previousLayers.length > 0 ? "PREVIOUS LAYERS:\n" + previousContent : ""}
-  
-  CHAOS: ${this.describeChaosLevel(chaos)}
-  
-  Generate Layer ${currentLayer} that:
-  - Goes deeper than Layer ${currentLayer - 1 || 1}
-  - Does NOT repeat previous content
-  ${
-    currentLayer === 1
-      ? "- Explains the core idea clearly"
-      : currentLayer === 2
-      ? "- Reveals mechanisms and contradictions"
-      : currentLayer === 3
-      ? "- Provides real scenarios and parallels"
-      : "- Explores abstract connections and mind-bending insights"
-  }
-  
-  Remember: Output ONLY the JSON object.`;
+    const user = `SEED TOPIC:
+"${seedSparkText}"
+
+CURRENT LAYER: ${currentLayer}
+${previousLayers.length > 0 ? "PREVIOUS LAYERS:\n" + previousContent : ""}
+
+DIFFICULTY: ${this.describeDifficultyLevel(difficulty)}
+
+Generate Layer ${currentLayer} that:
+- Goes deeper than Layer ${currentLayer - 1 || 1}
+- Does NOT repeat previous content
+${
+  currentLayer === 1
+    ? "- Explains the BASIC FACTS clearly with definitions"
+    : currentLayer === 2
+    ? "- Reveals MECHANISMS and WHY things work this way"
+    : currentLayer === 3
+    ? "- Provides REAL EXAMPLES and WHERE we see this"
+    : "- Explores ADVANCED concepts, EDGE CASES, and complex scenarios"
+}
+
+Output ONLY the JSON object.`;
 
     return { system, user };
   }
@@ -465,20 +457,20 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
     seedSparkText: string,
     allLayers: DeepDiveLayer[]
   ): { system: string; user: string } {
-    const system = `You are synthesizing a Deep Dive journey. Create a closing reflection that ties everything together.
-  
-  OUTPUT STRUCTURE:
-  {
-    "summary": "2-3 sentence summary of the journey in Indonesian",
-    "bigIdea": "The ONE big takeaway in Indonesian (1 sentence)",
-    "nextSteps": ["Exploration 1", "Exploration 2", "Exploration 3"],
-    "clusterConnection": "Optional: which concept cluster this relates to"
-  }
-  
-  This is the ENDING of an intellectual journey. Make it feel complete.
-  ALL TEXT IN INDONESIAN.
-  
-  Output ONLY valid JSON.`;
+    const system = `You are synthesizing a KNOWLEDGE JOURNEY. Create a closing summary that ties everything together.
+
+OUTPUT STRUCTURE:
+{
+  "summary": "2-3 sentence recap of knowledge gained in Indonesian",
+  "bigIdea": "The ONE key takeaway in Indonesian (1 sentence)",
+  "nextSteps": ["Related topic 1", "Related topic 2", "Related topic 3"],
+  "clusterConnection": "Optional: which knowledge domain this relates to"
+}
+
+This is the ENDING of a learning journey. Make it feel complete.
+ALL TEXT IN INDONESIAN.
+
+Output ONLY valid JSON.`;
 
     const layersSummary = allLayers
       .map(
@@ -490,19 +482,19 @@ Remember: Output ONLY the JSON object with 2-5 concepts.`;
       )
       .join("\n\n");
 
-    const user = `SEED SPARK:
-  "${seedSparkText}"
-  
-  COMPLETE JOURNEY:
-  ${layersSummary}
-  
-  Create a synthesis that:
-  - Summarizes what we explored
-  - Captures the BIG IDEA
-  - Suggests where to go next
-  - (Optional) Links to concept clusters
-  
-  Remember: Output ONLY the JSON object.`;
+    const user = `SEED TOPIC:
+"${seedSparkText}"
+
+COMPLETE LEARNING JOURNEY:
+${layersSummary}
+
+Create a synthesis that:
+- Summarizes what we learned (factual recap)
+- Captures the BIG TAKEAWAY (most important concept)
+- Suggests WHERE to learn next (related topics)
+- (Optional) Links to relevant knowledge domain
+
+Output ONLY the JSON object.`;
 
     return { system, user };
   }

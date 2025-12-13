@@ -18,7 +18,7 @@ interface SettingsState {
   setNotifications: (enabled: boolean) => void;
   setDailyReminderTime: (time: string) => void;
   setDefaultSparkMode: (mode: 1 | 2 | 3) => void;
-  setChaosLevel: (level: number) => void;
+  setDifficultyLevel: (level: number) => void;
   setMaxDeepDiveLayers: (layers: number) => void;
 }
 
