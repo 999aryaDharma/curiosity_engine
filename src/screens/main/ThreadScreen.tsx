@@ -1,4 +1,4 @@
-// src/screens/main/ThreadScreen.tsx - FRESH THREAD VIEW
+// src/screens/main/ThreadScreen.tsx - ULTRA SAFE VERSION
 
 import React, { useEffect, useState } from "react";
 import {
@@ -10,7 +10,6 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
 import { SoftCard, ModeCard } from "@components/common/Card";
 import Button from "@components/common/Button";
@@ -21,8 +20,6 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
-  ANIMATION,
 } from "@constants/colors";
 
 interface ThreadScreenProps {
@@ -46,21 +43,23 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     if (!isLoading && stats.totalConcepts > 0) {
-      // Animate stats counting
       animateStats();
-
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: ANIMATION.slow,
+        duration: 600,
         useNativeDriver: true,
       }).start();
     }
   }, [isLoading, stats]);
 
   const loadData = async () => {
-    await loadGraph();
-    if (clusters.length === 0) {
-      await detectClusters();
+    try {
+      await loadGraph();
+      if (!clusters || clusters.length === 0) {
+        await detectClusters();
+      }
+    } catch (error) {
+      console.error("[ThreadScreen] Load failed:", error);
     }
   };
 
@@ -74,11 +73,15 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
       step++;
       const progress = step / steps;
 
+      // DEFENSIVE: Ensure clusters is array
+      const safeClusters = Array.isArray(clusters) ? clusters : [];
+
       setAnimatedStats({
         clusters: Math.round(stats.totalClusters * progress),
         concepts: Math.round(stats.totalConcepts * progress),
         sparks: Math.round(
-          (clusters.reduce((sum, c) => sum + c.sparkCount, 0) || 0) * progress
+          (safeClusters.reduce((sum, c) => sum + (c?.sparkCount || 0), 0) ||
+            0) * progress
         ),
       });
 
@@ -87,7 +90,10 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
         setAnimatedStats({
           clusters: stats.totalClusters,
           concepts: stats.totalConcepts,
-          sparks: clusters.reduce((sum, c) => sum + c.sparkCount, 0),
+          sparks: safeClusters.reduce(
+            (sum, c) => sum + (c?.sparkCount || 0),
+            0
+          ),
         });
       }
     }, interval);
@@ -114,9 +120,11 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
   const isEmpty = stats.totalConcepts === 0;
   const clusterColors = ["mint", "coral", "sky", "rose", "sunny"] as const;
 
+  // DEFENSIVE: Ensure clusters is ALWAYS an array
+  const safeClusters = Array.isArray(clusters) ? clusters : [];
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -130,7 +138,6 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
           style={styles.addButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.addIcon}>+</Text>
         </TouchableOpacity>
       </View>
 
@@ -201,90 +208,114 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Your Clusters</Text>
 
-              {clusters && Array.isArray(clusters) ? clusters.map((cluster, index) => {
-                const coherencePercent = Math.round(cluster.coherence * 100);
-                const colorIndex = index % clusterColors.length;
-                const color = clusterColors[colorIndex];
+              {/* DEFENSIVE CHECK: Only map if safeClusters has items */}
+              {safeClusters.length === 0 ? (
+                <SoftCard style={styles.emptyCard}>
+                  <Text style={styles.emptyText}>
+                    No clusters yet. Keep generating sparks!
+                  </Text>
+                </SoftCard>
+              ) : (
+                safeClusters.map((cluster, index) => {
+                  // DEFENSIVE: Ensure cluster exists
+                  if (!cluster || !cluster.id) {
+                    console.warn(
+                      "[ThreadScreen] Invalid cluster at index:",
+                      index
+                    );
+                    return null;
+                  }
 
-                return (
-                  <Animated.View
-                    key={cluster.id}
-                    style={{
-                      opacity: fadeAnim,
-                      transform: [
-                        {
-                          translateY: fadeAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [30 * (index + 1), 0],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <TouchableOpacity
-                      onPress={() => handleClusterPress(cluster.id)}
-                      activeOpacity={0.9}
+                  const coherencePercent = Math.round(
+                    (cluster.coherence || 0) * 100
+                  );
+                  const colorIndex = index % clusterColors.length;
+                  const color = clusterColors[colorIndex];
+
+                  return (
+                    <Animated.View
+                      key={cluster.id}
+                      style={{
+                        opacity: fadeAnim,
+                        transform: [
+                          {
+                            translateY: fadeAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [30 * (index + 1), 0],
+                            }),
+                          },
+                        ],
+                      }}
                     >
-                      <ModeCard color={color} style={styles.clusterCard}>
-                        <View style={styles.clusterHeader}>
-                          <View style={styles.clusterIconContainer}>
-                            <Text style={styles.clusterIcon}>🧠</Text>
+                      <TouchableOpacity
+                        onPress={() => handleClusterPress(cluster.id)}
+                        activeOpacity={0.9}
+                      >
+                        <ModeCard color={color} style={styles.clusterCard}>
+                          <View style={styles.clusterHeader}>
+                            <View style={styles.clusterIconContainer}>
+                              <Text style={styles.clusterIcon}>🧠</Text>
+                            </View>
+                            <View style={styles.clusterTitleContainer}>
+                              <Text style={styles.clusterName}>
+                                {cluster.name || "Unnamed Cluster"}
+                              </Text>
+                            </View>
                           </View>
-                          <View style={styles.clusterTitleContainer}>
-                            <Text style={styles.clusterName}>
-                              {cluster.name}
+
+                          <View style={styles.clusterStats}>
+                            <View style={styles.clusterStatItem}>
+                              <Text style={styles.clusterStatNumber}>
+                                {Array.isArray(cluster.concepts)
+                                  ? cluster.concepts.length
+                                  : 0}
+                              </Text>
+                              <Text style={styles.clusterStatLabel}>
+                                concepts
+                              </Text>
+                            </View>
+
+                            <View style={styles.clusterStatDivider} />
+
+                            <View style={styles.clusterStatItem}>
+                              <Text style={styles.clusterStatNumber}>
+                                {cluster.sparkCount || 0}
+                              </Text>
+                              <Text style={styles.clusterStatLabel}>
+                                sparks
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Progress Bar */}
+                          <View style={styles.progressContainer}>
+                            <View style={styles.progressBar}>
+                              <Animated.View
+                                style={[
+                                  styles.progressFill,
+                                  {
+                                    width: `${coherencePercent}%`,
+                                    opacity: fadeAnim,
+                                  },
+                                ]}
+                              />
+                            </View>
+                            <Text style={styles.progressText}>
+                              {coherencePercent}% coherence
                             </Text>
                           </View>
-                        </View>
 
-                        <View style={styles.clusterStats}>
-                          <View style={styles.clusterStatItem}>
-                            <Text style={styles.clusterStatNumber}>
-                              {cluster.concepts.length}
-                            </Text>
-                            <Text style={styles.clusterStatLabel}>
-                              concepts
+                          <View style={styles.exploreRow}>
+                            <Text style={styles.exploreText}>
+                              Tap to view journey →
                             </Text>
                           </View>
-
-                          <View style={styles.clusterStatDivider} />
-
-                          <View style={styles.clusterStatItem}>
-                            <Text style={styles.clusterStatNumber}>
-                              {cluster.sparkCount}
-                            </Text>
-                            <Text style={styles.clusterStatLabel}>sparks</Text>
-                          </View>
-                        </View>
-
-                        {/* Progress Bar */}
-                        <View style={styles.progressContainer}>
-                          <View style={styles.progressBar}>
-                            <Animated.View
-                              style={[
-                                styles.progressFill,
-                                {
-                                  width: `${coherencePercent}%`,
-                                  opacity: fadeAnim,
-                                },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.progressText}>
-                            {coherencePercent}% coherence
-                          </Text>
-                        </View>
-
-                        <View style={styles.exploreRow}>
-                          <Text style={styles.exploreText}>
-                            Tap to view journey →
-                          </Text>
-                        </View>
-                      </ModeCard>
-                    </TouchableOpacity>
-                  </Animated.View>
-                );
-              }) : null}
+                        </ModeCard>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })
+              )}
             </View>
 
             {/* Actions */}
@@ -345,7 +376,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary.main,
     justifyContent: "center",
     alignItems: "center",
-    ...SHADOWS.glow.mint,
   },
   addIcon: {
     fontSize: 24,
@@ -441,6 +471,15 @@ const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
     marginBottom: SPACING.md,
+  },
+  emptyCard: {
+    padding: SPACING.lg,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray600,
+    textAlign: "center",
   },
   clusterCard: {
     marginBottom: SPACING.md,

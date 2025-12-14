@@ -1,4 +1,4 @@
-// src/screens/main/ThreadPackViewScreen.tsx
+// src/screens/main/ThreadPackViewScreen.tsx - ULTRA SAFE
 
 import React, { useEffect, useState } from "react";
 import {
@@ -22,7 +22,10 @@ import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 import { useSettingsStore } from "@stores/settingsStore";
 
-type ThreadPackViewScreenRouteProp = RouteProp<RootStackParamList, 'ThreadPackView'>;
+type ThreadPackViewScreenRouteProp = RouteProp<
+  RootStackParamList,
+  "ThreadPackView"
+>;
 
 type ThreadPackViewScreenProps = {
   route: ThreadPackViewScreenRouteProp;
@@ -50,7 +53,7 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
     try {
       const pack = await sparkGenerator.generateThreadPack(
         clusterId,
-        settings.chaosLevel
+        settings.difficultyLevel
       );
       setThreadPack(pack);
 
@@ -132,10 +135,16 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
   if (!threadPack) return null;
 
   const renderSparkCard = (
-    spark: ThreadSpark,
+    spark: ThreadSpark | null | undefined,
     index: number,
     isLast: boolean
   ) => {
+    // DEFENSIVE CHECK
+    if (!spark || !spark.id) {
+      console.warn("[ThreadPackView] Invalid spark at index:", index);
+      return null;
+    }
+
     const isSaved = savedSparks.has(spark.id);
 
     let typeColor = COLORS.primary.main;
@@ -143,11 +152,11 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
     let typeIcon = "→";
 
     if (spark.type === "derived") {
-      typeColor = COLORS.accent.purple;
+      typeColor = COLORS.accent.main || COLORS.primary.main;
       typeLabel = "Alternative Path";
       typeIcon = "↗";
     } else if (spark.type === "wildcard") {
-      typeColor = COLORS.accent.orange;
+      typeColor = COLORS.rose.main || COLORS.secondary.main;
       typeLabel = "Wildcard";
       typeIcon = "✦";
     }
@@ -215,11 +224,14 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
     );
   };
 
+  // DEFENSIVE: Build safe array of all sparks
   const allSparks = [
     threadPack.continuationSpark,
-    ...(threadPack.derivedSparks && Array.isArray(threadPack.derivedSparks) ? threadPack.derivedSparks : []),
+    ...(Array.isArray(threadPack.derivedSparks)
+      ? threadPack.derivedSparks
+      : []),
     threadPack.wildcardSpark,
-  ];
+  ].filter((spark) => spark !== null && spark !== undefined);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -258,11 +270,13 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
             </Card>
 
             <View style={styles.packContainer}>
-              {allSparks && Array.isArray(allSparks) ?
+              {allSparks.length === 0 ? (
+                <Text style={styles.emptyText}>No sparks available</Text>
+              ) : (
                 allSparks.map((spark, index) =>
                   renderSparkCard(spark, index, index === allSparks.length - 1)
-                ) : null
-              }
+                )
+              )}
             </View>
 
             <View style={styles.bottomActions}>
@@ -356,6 +370,12 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray700,
     lineHeight: FONT_SIZES.sm * 1.4,
+  },
+  emptyText: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.neutral.gray600,
+    textAlign: "center",
+    padding: SPACING.xl,
   },
   packContainer: {
     marginBottom: SPACING.xl,

@@ -98,6 +98,7 @@ export const COLORS = {
     sky: ["#47B8E0", "#6DD5FA"], // Sky blue gradient
     rose: ["#F08C9E", "#FFA8B8"], // Soft pink gradient
     dreamy: ["#A78BFA", "#6DD5FA"], // Purple to blue
+    twilight: ["#2EAB89", "#3DC9A5", "#47B8E0"], // Mint to blue (3 colors)
     background: ["#FAFAF8", "#F5F5F3"], // Subtle background gradient
   },
 };

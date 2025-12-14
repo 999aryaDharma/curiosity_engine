@@ -1,4 +1,4 @@
-// src/components/common/LoadingSpinner.tsx
+// src/components/common/LoadingSpinner.tsx - ULTRA SAFE
 
 import React, { useEffect, useRef } from "react";
 import {
@@ -118,6 +118,13 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
     switch (variant) {
       case "gradient":
+        // DEFENSIVE: Ensure gradient colors array is valid
+        const gradientColors = Array.isArray(COLORS.gradients?.twilight)
+          ? COLORS.gradients.twilight
+          : Array.isArray(COLORS.gradients?.mint)
+          ? COLORS.gradients.mint
+          : ["#2EAB89", "#3DC9A5", "#2EAB89"]; // Fallback
+
         return (
           <Animated.View
             style={[
@@ -130,9 +137,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
             ]}
           >
             <LinearGradient
-              colors={
-                COLORS.gradients.twilight as [string, string, ...string[]]
-              }
+              colors={gradientColors as [string, string, ...string[]]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[
@@ -195,7 +200,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
                   width: dotSize,
                   height: dotSize,
                   borderRadius: dotSize / 2,
-                  backgroundColor: COLORS.accent.purple,
+                  backgroundColor: COLORS.accent.main || COLORS.secondary.main,
                   transform: [{ translateY: dotTranslate2 }],
                 },
               ]}
@@ -216,6 +221,13 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         );
 
       case "pulse":
+        // DEFENSIVE: Safe gradient colors
+        const pulseGradient = Array.isArray(COLORS.gradients?.twilight)
+          ? COLORS.gradients.twilight
+          : Array.isArray(COLORS.gradients?.mint)
+          ? COLORS.gradients.mint
+          : ["#2EAB89", "#3DC9A5"];
+
         return (
           <Animated.View
             style={{
@@ -223,9 +235,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
             }}
           >
             <LinearGradient
-              colors={
-                COLORS.gradients.twilight as [string, string, ...string[]]
-              }
+              colors={pulseGradient as [string, string, ...string[]]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[
@@ -265,6 +275,17 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     style,
   ];
 
+  const getMessageFontSize = () => {
+    switch (size) {
+      case "small":
+        return FONT_SIZES.xs;
+      case "large":
+        return FONT_SIZES.md;
+      default:
+        return FONT_SIZES.sm;
+    }
+  };
+
   return (
     <View style={containerStyle}>
       {renderSpinner()}
@@ -275,17 +296,6 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       )}
     </View>
   );
-
-  function getMessageFontSize() {
-    switch (size) {
-      case "small":
-        return FONT_SIZES.xs;
-      case "large":
-        return FONT_SIZES.md;
-      default:
-        return FONT_SIZES.sm;
-    }
-  }
 };
 
 const styles = StyleSheet.create({

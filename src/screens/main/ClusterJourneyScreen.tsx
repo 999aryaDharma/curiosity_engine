@@ -1,4 +1,4 @@
-// src/screens/main/ClusterJourneyScreen.tsx - FRESH DESIGN
+// src/screens/main/ClusterJourneyScreen.tsx - ULTRA SAFE
 
 import React, { useEffect, useState } from "react";
 import {
@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp, NavigationProp } from "@react-navigation/native";
 import { RootStackParamList } from "@navigation/AppNavigation";
-import { LinearGradient } from "expo-linear-gradient";
 import { useThreadStore } from "@stores/threadStore";
 import { ConceptCluster, ConceptNode } from "@type/thread.types";
 import { Spark } from "@type/spark.types";
@@ -25,7 +24,6 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  SHADOWS,
 } from "@constants/colors";
 import conceptGraphEngine from "@services/thread-engine/conceptGraph";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
@@ -71,24 +69,32 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
 
       setCluster(clusterData);
 
+      // DEFENSIVE: Ensure concepts is array
+      const safeConceptIds = Array.isArray(clusterData.concepts)
+        ? clusterData.concepts
+        : [];
+
       const conceptNodes = await Promise.all(
-        clusterData.concepts.map((id) => conceptGraphEngine.getConceptById(id))
+        safeConceptIds.map((id) => conceptGraphEngine.getConceptById(id))
       );
       const validNodes = conceptNodes.filter(
-        (n): n is ConceptNode => n !== null
+        (n): n is ConceptNode => n !== null && n !== undefined
       );
       setConcepts(validNodes.sort((a, b) => b.weight - a.weight));
 
+      // DEFENSIVE: Collect spark IDs safely
       const allSparkIds = new Set<string>();
       validNodes.forEach((node) => {
-        node.sparkIds.forEach((id) => allSparkIds.add(id));
+        if (node && Array.isArray(node.sparkIds)) {
+          node.sparkIds.forEach((id) => allSparkIds.add(id));
+        }
       });
 
       const sparkData = await Promise.all(
         Array.from(allSparkIds).map((id) => sparkGenerator.getSparkById(id))
       );
       const validSparks = sparkData
-        .filter((s): s is Spark => s !== null)
+        .filter((s): s is Spark => s !== null && s !== undefined)
         .sort((a, b) => b.createdAt - a.createdAt);
       setSparks(validSparks);
 
@@ -125,9 +131,12 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
 
   if (!cluster) return null;
 
+  // DEFENSIVE: Ensure arrays
+  const safeConcepts = Array.isArray(concepts) ? concepts : [];
+  const safeSparks = Array.isArray(sparks) ? sparks : [];
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -156,18 +165,18 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
 
             <View style={styles.statsGrid}>
               <View style={styles.statBox}>
-                <Text style={styles.statNumber}>{concepts.length}</Text>
+                <Text style={styles.statNumber}>{safeConcepts.length}</Text>
                 <Text style={styles.statLabel}>Concepts</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
-                <Text style={styles.statNumber}>{sparks.length}</Text>
+                <Text style={styles.statNumber}>{safeSparks.length}</Text>
                 <Text style={styles.statLabel}>Sparks</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statNumber}>
-                  {Math.round(cluster.coherence * 100)}%
+                  {Math.round((cluster.coherence || 0) * 100)}%
                 </Text>
                 <Text style={styles.statLabel}>Coherence</Text>
               </View>
@@ -177,21 +186,25 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
           {/* Dominant Concepts */}
           <Text style={styles.sectionTitle}>Key Concepts</Text>
           <View style={styles.conceptsGrid}>
-            {concepts && Array.isArray(concepts) ? concepts.slice(0, 6).map((concept, index) => (
-              <View key={concept.id} style={styles.conceptPill}>
-                <Text style={styles.conceptName}>{concept.name}</Text>
-                <View style={styles.conceptWeightBadge}>
-                  <Text style={styles.conceptWeight}>
-                    {Math.round(concept.weight * 100)}%
-                  </Text>
+            {safeConcepts.length === 0 ? (
+              <Text style={styles.emptyText}>No concepts yet</Text>
+            ) : (
+              safeConcepts.slice(0, 6).map((concept) => (
+                <View key={concept.id} style={styles.conceptPill}>
+                  <Text style={styles.conceptName}>{concept.name}</Text>
+                  <View style={styles.conceptWeightBadge}>
+                    <Text style={styles.conceptWeight}>
+                      {Math.round((concept.weight || 0) * 100)}%
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            )) : null}
+              ))
+            )}
           </View>
 
           {/* Recent Sparks */}
           <Text style={styles.sectionTitle}>Recent Sparks</Text>
-          {(!sparks || sparks.length === 0) ? (
+          {safeSparks.length === 0 ? (
             <SoftCard style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>✨</Text>
               <Text style={styles.emptyText}>
@@ -200,10 +213,10 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
             </SoftCard>
           ) : (
             <View style={styles.sparksTimeline}>
-              {sparks && Array.isArray(sparks) ? sparks.slice(0, 4).map((spark, index) => (
+              {safeSparks.slice(0, 4).map((spark, index) => (
                 <View key={spark.id} style={styles.timelineItem}>
                   <View style={styles.timelineDot} />
-                  {index < sparks.length - 1 && (
+                  {index < safeSparks.length - 1 && (
                     <View style={styles.timelineLine} />
                   )}
                   <SoftCard style={styles.sparkCard}>
@@ -218,7 +231,7 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
                     </Text>
                   </SoftCard>
                 </View>
-              )) : null}
+              ))}
             </View>
           )}
 

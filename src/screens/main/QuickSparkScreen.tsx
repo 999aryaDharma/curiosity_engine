@@ -477,6 +477,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray700,
     lineHeight: FONT_SIZES.sm * 1.5,
+    textAlign: 'justify',
   },
   conceptsSection: {
     marginTop: SPACING.base,

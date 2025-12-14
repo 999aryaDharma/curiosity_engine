@@ -422,16 +422,14 @@ const LayerView: React.FC<{
         </View>
 
         <View style={styles.layerSection}>
-          <Text style={styles.layerSectionIcon}>💡</Text>
-          <Text style={styles.layerSectionTitle}>Explanation</Text>
+          <Text style={styles.layerSectionTitle}>💡 Explanation</Text>
           <Text style={styles.layerExplanation}>
             {currentLayer.explanation}
           </Text>
         </View>
 
         <View style={styles.layerSection}>
-          <Text style={styles.layerSectionIcon}>❓</Text>
-          <Text style={styles.layerSectionTitle}>Questions</Text>
+          <Text style={styles.layerSectionTitle}>❓ Questions</Text>
           {currentLayer.questions &&
             currentLayer.questions.map((q, i) => (
               <SoftCard key={i} style={styles.questionCard}>
@@ -448,16 +446,14 @@ const LayerView: React.FC<{
 
         {currentLayer.analogy && (
           <View style={styles.layerSection}>
-            <Text style={styles.layerSectionIcon}>🎨</Text>
-            <Text style={styles.layerSectionTitle}>Analogy</Text>
+            <Text style={styles.layerSectionTitle}>🎨 Analogy</Text>
             <Text style={styles.layerAnalogy}>{currentLayer.analogy}</Text>
           </View>
         )}
 
         {currentLayer.observation && (
           <View style={styles.layerSection}>
-            <Text style={styles.layerSectionIcon}>👁</Text>
-            <Text style={styles.layerSectionTitle}>Observation</Text>
+            <Text style={styles.layerSectionTitle}>👁 Observation</Text>
             <Text style={styles.layerObservation}>
               {currentLayer.observation}
             </Text>
@@ -692,7 +688,7 @@ const styles = StyleSheet.create({
   },
 
   layerSection: { marginBottom: SPACING.lg },
-  layerSectionIcon: { fontSize: 20, marginBottom: SPACING.xs },
+  // layerSectionIcon: { fontSize: 20, marginBottom: SPACING.xs },
   layerSectionTitle: {
     fontSize: FONT_SIZES.base,
     fontWeight: FONT_WEIGHTS.bold,
@@ -701,9 +697,10 @@ const styles = StyleSheet.create({
   },
   layerExplanation: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.white,
+    color: COLORS.neutral.gray400,
     opacity: 0.95,
     lineHeight: FONT_SIZES.sm * 1.6,
+    textAlign: "justify",
   },
 
   questionCard: { padding: SPACING.md, marginBottom: SPACING.sm },
@@ -726,12 +723,14 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     fontStyle: "italic",
     lineHeight: FONT_SIZES.sm * 1.5,
+    textAlign: "justify",
   },
   layerObservation: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.white,
     opacity: 0.9,
     lineHeight: FONT_SIZES.sm * 1.5,
+    textAlign: "justify",
   },
 
   actionButton: { marginTop: SPACING.md },
@@ -748,6 +747,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.base,
     color: COLORS.neutral.white,
     lineHeight: FONT_SIZES.base * 1.6,
+    textAlign: "justify",
   },
 
   bigIdeaCard: {
@@ -767,6 +767,7 @@ const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.neutral.gray800,
     lineHeight: FONT_SIZES.lg * 1.4,
+    textAlign: "justify",
   },
 
   nextStepsCard: { marginBottom: SPACING.lg, padding: SPACING.base },
@@ -781,6 +782,7 @@ const styles = StyleSheet.create({
     color: COLORS.neutral.gray700,
     marginBottom: SPACING.sm,
     lineHeight: FONT_SIZES.sm * 1.5,
+    textAlign: "justify",
   },
 });
 
