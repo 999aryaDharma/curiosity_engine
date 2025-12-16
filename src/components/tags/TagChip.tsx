@@ -1,4 +1,4 @@
-// src/components/tags/TagChip.tsx - FRESH ROUNDED CHIPS
+// src/components/tags/TagChip.tsx - UPDATED WITH LONG PRESS
 
 import React from "react";
 import {
@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import {
   COLORS,
-  SHADOWS,
   SPACING,
   BORDER_RADIUS,
   FONT_SIZES,
@@ -26,6 +25,7 @@ interface TagChipProps {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void; // NEW: Long press support
   onRemove?: () => void;
   color?: TagColor;
   size?: TagSize;
@@ -37,6 +37,7 @@ export const TagChip: React.FC<TagChipProps> = ({
   label,
   selected = false,
   onPress,
+  onLongPress, // NEW
   onRemove,
   color = "mint",
   size = "medium",
@@ -48,7 +49,6 @@ export const TagChip: React.FC<TagChipProps> = ({
 
   React.useEffect(() => {
     if (selected && animated) {
-      // Playful pop animation when selected
       Animated.sequence([
         Animated.spring(scaleAnim, {
           toValue: 1.08,
@@ -64,7 +64,6 @@ export const TagChip: React.FC<TagChipProps> = ({
         }),
       ]).start();
 
-      // Glow effect
       Animated.timing(glowAnim, {
         toValue: 1,
         duration: ANIMATION.normal,
@@ -96,6 +95,17 @@ export const TagChip: React.FC<TagChipProps> = ({
       useNativeDriver: true,
       speed: 50,
       bounciness: 10,
+    }).start();
+  };
+
+  // NEW: Long press feedback
+  const handleLongPressStart = () => {
+    if (!animated || !onLongPress) return;
+    Animated.spring(scaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 0,
     }).start();
   };
 
@@ -215,10 +225,15 @@ export const TagChip: React.FC<TagChipProps> = ({
       <TouchableOpacity
         style={[chipStyle, style]}
         onPress={onPress}
+        onLongPress={() => {
+          console.log(`[TagChip] Long press detected on: ${label}`);
+          onLongPress && onLongPress();
+        }}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
-        disabled={!onPress}
+        disabled={!onPress && !onLongPress}
+        delayLongPress={500}
       >
         <View style={styles.contentContainer}>
           <Text

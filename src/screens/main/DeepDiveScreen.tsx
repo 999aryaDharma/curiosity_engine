@@ -27,6 +27,7 @@ import {
   BORDER_RADIUS,
 } from "@constants/colors";
 import { formatDate } from "@utils/dateUtils";
+import { CustomAlert } from "@components/common/CustomAlert";
 
 interface DeepDiveScreenProps {
   navigation: any;
@@ -47,8 +48,47 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
     null
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? false,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     loadRecentSparks(20);
@@ -76,7 +116,9 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
       setCurrentSession(session);
       setScreenState("seed_view");
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, {
+        type: "error",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -93,7 +135,9 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
       setCurrentSession(session);
       setScreenState("seed_view");
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, {
+        type: "error",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -111,7 +155,9 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
       setCurrentSession(updated);
       setScreenState("layer_view");
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, {
+        type: "error",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -132,7 +178,9 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
       const updated = await deepDiveService.getSession(currentSession.id);
       setCurrentSession(updated);
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, {
+        type: "error",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -147,35 +195,40 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
       setCurrentSession(updated);
       setScreenState("synthesis");
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, {
+        type: "error",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleBranchIdea = (layerNumber: number, questionIndex: number) => {
-    Alert.alert(
+    showAlert(
       "Branch This Idea",
       "Create a new Deep Dive from this question?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Branch",
-          onPress: async () => {
-            try {
-              const newSession = await deepDiveService.branchFromLayer(
-                currentSession!.id,
-                layerNumber,
-                questionIndex
-              );
-              setCurrentSession(newSession);
-              setScreenState("seed_view");
-            } catch (error: any) {
-              Alert.alert("Error", error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const newSession = await deepDiveService.branchFromLayer(
+            currentSession!.id,
+            layerNumber,
+            questionIndex
+          );
+          setCurrentSession(newSession);
+          setScreenState("seed_view");
+        } catch (error: any) {
+          showAlert("Error", error.message, undefined, undefined, {
+            type: "error",
+          });
+        }
+      },
+      undefined, // onCancel
+      {
+        confirmText: "Branch",
+        cancelText: "Cancel",
+        showCancel: true,
+        type: "default",
+      }
     );
   };
 
@@ -205,6 +258,25 @@ export const DeepDiveScreen: React.FC<DeepDiveScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() =>
@@ -576,7 +648,7 @@ const styles = StyleSheet.create({
     color: COLORS.neutral.gray600,
     textAlign: "center",
   },
-  sparkSelectionCard: { padding: SPACING.base, marginBottom: SPACING.md },
+  sparkSelectionCard: { padding: SPACING.base, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.neutral.gray200 },
   sparkSelectionText: {
     fontSize: FONT_SIZES.base,
     color: COLORS.neutral.gray800,
@@ -697,13 +769,13 @@ const styles = StyleSheet.create({
   },
   layerExplanation: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.gray400,
+    color: COLORS.neutral.gray100,
     opacity: 0.95,
     lineHeight: FONT_SIZES.sm * 1.6,
     textAlign: "justify",
   },
 
-  questionCard: { padding: SPACING.md, marginBottom: SPACING.sm },
+  questionCard: { padding: SPACING.lg, marginBottom: SPACING.sm },
   questionText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray800,
@@ -719,7 +791,7 @@ const styles = StyleSheet.create({
 
   layerAnalogy: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral.white,
+    color: COLORS.neutral.gray100,
     opacity: 0.9,
     fontStyle: "italic",
     lineHeight: FONT_SIZES.sm * 1.5,

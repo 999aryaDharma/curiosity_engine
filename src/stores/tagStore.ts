@@ -1,4 +1,4 @@
-// src/stores/tagStore.ts - FIXED VERSION
+// src/stores/tagStore.ts - UPDATED
 
 import { create } from "zustand";
 import { Tag, DailyTagSelection } from "@type/tag.types";
@@ -10,6 +10,7 @@ interface TagState {
   dailyTags: Tag[];
   dailySelection: DailyTagSelection | null;
   selectedTags: string[];
+  selectedTagForGenerate: string | null; // NEW: Single tag selection
   isLoading: boolean;
   error: string | null;
 
@@ -18,9 +19,18 @@ interface TagState {
   loadDailyTags: () => Promise<void>;
   generateDailyTags: (force?: boolean) => Promise<void>;
   updateDailyTags: (tagIds: string[]) => Promise<void>;
+
+  // NEW: Tag replacement
+  replaceDailyTag: (oldTagId: string, newTagId: string) => Promise<void>;
+
+  // Selection methods
   selectTag: (tagId: string) => void;
   deselectTag: (tagId: string) => void;
   clearSelection: () => void;
+
+  // NEW: Single tag selection for generate
+  selectTagForGenerate: (tagId: string | null) => void;
+
   searchTags: (query: string) => Promise<Tag[]>;
   createCustomTag: (name: string, cluster?: string) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
@@ -33,6 +43,7 @@ export const useTagStore = create<TagState>((set, get) => ({
   dailyTags: [],
   dailySelection: null,
   selectedTags: [],
+  selectedTagForGenerate: null,
   isLoading: false,
   error: null,
 
@@ -55,7 +66,6 @@ export const useTagStore = create<TagState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const tags = await tagEngine.getAllTags();
-      // DEFENSIVE: Ensure it's an array
       set({ allTags: Array.isArray(tags) ? tags : [] });
     } catch (error: any) {
       set({ error: error.message, allTags: [] });
@@ -71,7 +81,6 @@ export const useTagStore = create<TagState>((set, get) => ({
       const selection = await tagEngine.getDailyTags();
       if (selection) {
         const tags = await tagRepository.getTagsByIds(selection.tags);
-        // DEFENSIVE: Ensure arrays
         set({
           dailyTags: Array.isArray(tags) ? tags : [],
           dailySelection: selection,
@@ -92,10 +101,10 @@ export const useTagStore = create<TagState>((set, get) => ({
     try {
       const selection = await tagEngine.generateDailyTags(force);
       const tags = await tagRepository.getTagsByIds(selection.tags);
-      // DEFENSIVE: Ensure arrays
       set({
         dailyTags: Array.isArray(tags) ? tags : [],
         dailySelection: selection,
+        selectedTagForGenerate: null, // Reset selection when regenerating
       });
     } catch (error: any) {
       set({ error: error.message, dailyTags: [] });
@@ -108,7 +117,6 @@ export const useTagStore = create<TagState>((set, get) => ({
   updateDailyTags: async (tagIds: string[]) => {
     set({ isLoading: true, error: null });
     try {
-      // DEFENSIVE: Ensure input is array
       const safeTagIds = Array.isArray(tagIds) ? tagIds : [];
       const selection = await tagEngine.updateDailyTags(safeTagIds);
       const tags = await tagRepository.getTagsByIds(selection.tags);
@@ -119,6 +127,37 @@ export const useTagStore = create<TagState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message });
       console.error("[TagStore] Update daily tags failed:", error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // NEW: Replace a daily tag
+  replaceDailyTag: async (oldTagId: string, newTagId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { dailySelection } = get();
+      if (!dailySelection) {
+        throw new Error("No daily selection available");
+      }
+
+      // Replace in the tags array
+      const updatedTagIds = dailySelection.tags.map((id) =>
+        id === oldTagId ? newTagId : id
+      );
+
+      // Update daily selection
+      await get().updateDailyTags(updatedTagIds);
+
+      // If the replaced tag was selected for generate, reset selection
+      if (get().selectedTagForGenerate === oldTagId) {
+        set({ selectedTagForGenerate: null });
+      }
+
+      console.log(`[TagStore] Replaced tag ${oldTagId} with ${newTagId}`);
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[TagStore] Replace daily tag failed:", error);
     } finally {
       set({ isLoading: false });
     }
@@ -149,6 +188,14 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   clearSelection: () => {
     set({ selectedTags: [] });
+  },
+
+  // NEW: Select single tag for generate
+  selectTagForGenerate: (tagId: string | null) => {
+    set({ selectedTagForGenerate: tagId });
+    console.log(
+      `[TagStore] Selected tag for generate: ${tagId || "none (use all)"}`
+    );
   },
 
   searchTags: async (query: string) => {

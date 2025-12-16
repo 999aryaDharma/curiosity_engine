@@ -245,7 +245,7 @@ export const ClusterJourneyScreen: React.FC<ClusterJourneyScreenProps> = ({
             <Button
               title="Generate Thread Pack"
               onPress={handleContinueThread}
-              variant="soft"
+              variant="gradient"
               size="large"
               fullWidth
               style={styles.ctaButton}
@@ -466,7 +466,8 @@ const styles = StyleSheet.create({
     lineHeight: FONT_SIZES.sm * 1.5,
   },
   ctaButton: {
-    marginTop: SPACING.md,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

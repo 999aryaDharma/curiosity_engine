@@ -22,6 +22,7 @@ interface ThreadState {
   loadGraph: () => Promise<void>;
   refreshGraph: () => Promise<void>;
   detectClusters: () => Promise<void>;
+  loadStatsOnly: () => Promise<void>;
   selectCluster: (clusterId: string) => Promise<void>;
   deselectCluster: () => void;
   getMostConnected: (limit?: number) => Promise<ConceptNode[]>;
@@ -79,6 +80,36 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
         },
       });
       console.error("[ThreadStore] Load graph failed:", error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // New method to load lightweight stats only
+  loadStatsOnly: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      // Get only the counts to improve initial loading performance
+      const [nodeCount, linkCount, clusters] = await Promise.all([
+        conceptGraphEngine.getConceptCount(),
+        conceptGraphEngine.getLinkCount(),
+        clusterEngine.getAllClusters(),
+      ]);
+
+      const safeClusters = Array.isArray(clusters) ? clusters : [];
+
+      // Update with just the stats and clusters to make UI responsive quickly
+      set({
+        clusters: safeClusters,
+        stats: {
+          totalConcepts: nodeCount,
+          totalLinks: linkCount,
+          totalClusters: safeClusters.length,
+        },
+      });
+    } catch (error: any) {
+      set({ error: error.message });
+      console.error("[ThreadStore] Load stats only failed:", error);
     } finally {
       set({ isLoading: false });
     }

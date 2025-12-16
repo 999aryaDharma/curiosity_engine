@@ -21,6 +21,7 @@ import LoadingSpinner from "@components/common/LoadingSpinner";
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
 import sparkGenerator from "@services/spark-engine/sparkGenerator";
 import { useSettingsStore } from "@stores/settingsStore";
+import { CustomAlert } from "@components/common/CustomAlert";
 
 type ThreadPackViewScreenRouteProp = RouteProp<
   RootStackParamList,
@@ -41,8 +42,47 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
   const [threadPack, setThreadPack] = useState<ThreadPack | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
   const [savedSparks, setSavedSparks] = useState<Set<string>>(new Set());
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? false,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     generatePack();
@@ -63,8 +103,8 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
         useNativeDriver: true,
       }).start();
     } catch (error: any) {
-      Alert.alert("Error", error.message);
-      navigation.goBack();
+      showAlert("Error", error.message, () => navigation.goBack(), undefined, { type: "error", showCancel: false });
+      // navigation.goBack(); is called in onConfirm callback
     } finally {
       setIsGenerating(false);
     }
@@ -82,39 +122,58 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
 
       setSavedSparks((prev) => new Set([...prev, spark.id]));
 
-      Alert.alert(
+      showAlert(
         "Added to Thread",
-        "This spark has been saved to your thread."
+        "This spark has been saved to your thread.",
+        undefined,
+        undefined,
+        { type: "success", showCancel: false }
       );
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      showAlert("Error", error.message, undefined, undefined, { type: "error", showCancel: false });
     }
   };
 
   const handleExploreSpark = (spark: ThreadSpark) => {
-    Alert.alert(
-      "Explore Spark",
-      "Would you like to create a Deep Dive based on this spark?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Deep Dive",
-          onPress: () => {
-            navigation.navigate("DeepDive", { sparkText: spark.text });
-          },
+    // Check if this spark has an ID that exists in the spark store
+    // If so, navigate to SparkDetail; otherwise offer DeepDive option
+    if (spark.id) {
+      showAlert(
+        "Explore Spark",
+        "Would you like to view this spark in detail or create a Deep Dive?",
+        () => {
+          // Navigate to SparkDetail
+          navigation.navigate("SparkDetail", { sparkId: spark.id });
         },
-      ]
-    );
+        () => {
+          // Go to DeepDive
+          navigation.navigate("DeepDive", { sparkText: spark.text });
+        },
+        {
+          confirmText: "View Detail",
+          cancelText: "Deep Dive",
+          showCancel: true,
+          type: "default",
+        }
+      );
+    } else {
+      // If no ID, just go to DeepDive
+      navigation.navigate("DeepDive", { sparkText: spark.text });
+    }
   };
 
   const handleRegenerate = () => {
-    Alert.alert(
+    showAlert(
       "Regenerate Pack",
       "Generate a new set of 4 sparks for this cluster?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Regenerate", onPress: generatePack },
-      ]
+      generatePack,
+      undefined, // onCancel - no action needed for cancel
+      {
+        confirmText: "Regenerate",
+        cancelText: "Cancel",
+        showCancel: true,
+        type: "warning",
+      }
     );
   };
 
@@ -235,6 +294,25 @@ export const ThreadPackViewScreen: React.FC<ThreadPackViewScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       <LinearGradient colors={["#FFFFFF", "#F0F9FF"]} style={styles.gradient}>
         <View style={styles.header}>
           <TouchableOpacity

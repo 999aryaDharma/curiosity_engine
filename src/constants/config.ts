@@ -108,7 +108,7 @@ export const HAPTIC_FEEDBACK = {
 export const DEFAULT_SETTINGS = {
   theme: "auto" as const,
   language: "en" as const,
-  notificationsEnabled: false,
+  notificationsEnabled: true,
   dailyReminderTime: "09:00",
   defaultSparkMode: SPARK_MODES.QUICK_LEARN,
   difficultyLevel: DIFFICULTY_LEVELS.INTERMEDIATE, // Renamed from chaosLevel

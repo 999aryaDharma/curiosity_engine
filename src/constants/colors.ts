@@ -284,6 +284,7 @@ export const SPACING = {
   xxl: 32,
   xxxl: 48,
   huge: 64,
+  full: "100%",
 };
 
 // Border Radius - Heavily Rounded

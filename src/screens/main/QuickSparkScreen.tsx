@@ -1,4 +1,4 @@
-// src/screens/main/QuickSparkScreen.tsx - FRESH QUICK SPARK
+// src/screens/main/QuickSparkScreen.tsx - UPDATED
 
 import React, { useState, useEffect } from "react";
 import {
@@ -18,12 +18,12 @@ import Button from "@components/common/Button";
 import { ModeCard, SoftCard } from "@components/common/Card";
 import TagChip from "@components/tags/TagChip";
 import LoadingSpinner from "@components/common/LoadingSpinner";
+import CustomAlert from "@components/common/CustomAlert";
 import {
   COLORS,
   SPACING,
   FONT_SIZES,
   FONT_WEIGHTS,
-  BORDER_RADIUS,
   ANIMATION,
 } from "@constants/colors";
 
@@ -34,7 +34,7 @@ interface QuickSparkScreenProps {
 export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   navigation,
 }) => {
-  const { dailyTags, loadDailyTags } = useTagStore();
+  const { dailyTags, selectedTagForGenerate, loadDailyTags } = useTagStore();
   const {
     currentSpark,
     isGenerating,
@@ -47,9 +47,48 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
 
   const [showInsight, setShowInsight] = useState(false);
   const [previousSparkId, setPreviousSparkId] = useState<string | null>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
   const insightAnim = React.useRef(new Animated.Value(0)).current;
+
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? false,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     loadDailyTags();
@@ -59,13 +98,11 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     if (currentSpark) {
       markAsViewed(currentSpark.id);
 
-      // Only reset showInsight if this is a new spark (different from previous)
       if (previousSparkId !== currentSpark.id) {
         setShowInsight(false);
         setPreviousSparkId(currentSpark.id);
       }
 
-      // Entrance animation
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -83,20 +120,41 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
   }, [currentSpark, previousSparkId]);
 
   const handleGenerate = async () => {
-    if (dailyTags.length === 0) {
-      Alert.alert("No Tags", "Please select tags first");
+    // UPDATED: Use selected tag or all daily tags
+    const safeDailyTags = Array.isArray(dailyTags) ? dailyTags : [];
+
+    if (safeDailyTags.length === 0) {
+      showAlert("No Tags", "Please wait for tags to load", undefined, undefined, { type: "warning" });
       return;
     }
 
+    // Filter to selected tag if one is chosen
+    let tagsForGenerate = safeDailyTags;
+    if (selectedTagForGenerate) {
+      const selectedTag = safeDailyTags.find(
+        (t) => t.id === selectedTagForGenerate
+      );
+      if (selectedTag) {
+        tagsForGenerate = [selectedTag];
+        console.log(
+          `[QuickSpark] Generating with selected tag: ${selectedTag.name}`
+        );
+      }
+    } else {
+      console.log(
+        `[QuickSpark] Generating with all ${tagsForGenerate.length} daily tags`
+      );
+    }
+
     setShowInsight(false);
-    setPreviousSparkId(null); // Reset previous spark ID
+    setPreviousSparkId(null);
     fadeAnim.setValue(0);
     scaleAnim.setValue(0.95);
 
     try {
-      await generateQuickSpark(dailyTags, settings.difficultyLevel);
+      await generateQuickSpark(tagsForGenerate, settings.difficultyLevel);
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to generate spark");
+      showAlert("Error", err.message || "Failed to generate spark", undefined, undefined, { type: "error" });
     }
   };
 
@@ -131,9 +189,32 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
     );
   }
 
+  const safeDailyTags = Array.isArray(dailyTags) ? dailyTags : [];
+  const displayedTags = selectedTagForGenerate
+    ? safeDailyTags.filter((t) => t.id === selectedTagForGenerate)
+    : safeDailyTags.slice(0, 3);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -151,7 +232,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
       >
         {!currentSpark ? (
-          // Empty State
           <Animated.View
             style={[
               styles.emptyState,
@@ -166,7 +246,10 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
             <Text style={styles.emptyEmoji}>✨💡⚡</Text>
             <Text style={styles.emptyTitle}>Ready to Spark?</Text>
             <Text style={styles.emptyDescription}>
-              Generate a quick curiosity boost based on today's tags
+              Generate a quick curiosity boost
+              {selectedTagForGenerate
+                ? " using your selected tag"
+                : " using today's themes"}
             </Text>
 
             <SoftCard style={styles.infoCard}>
@@ -174,15 +257,15 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
               <Text style={styles.infoItem}>
                 Difficulty Level: {Math.round(settings.difficultyLevel * 100)}%
               </Text>
-              <Text style={styles.infoItem}>
-                {settings.difficultyLevel < 0.3
-                  ? "Focused mode"
-                  : settings.difficultyLevel < 0.6
-                  ? "Balanced exploration"
-                  : settings.difficultyLevel < 0.8
-                  ? "Creative connections"
-                  : "Maximum creativity"}
-              </Text>
+              {selectedTagForGenerate && (
+                <Text style={styles.infoItem}>
+                  Using tag:{" "}
+                  {
+                    safeDailyTags.find((t) => t.id === selectedTagForGenerate)
+                      ?.name
+                  }
+                </Text>
+              )}
             </SoftCard>
 
             <Button
@@ -195,20 +278,18 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
             />
           </Animated.View>
         ) : (
-          // Spark View
           <Animated.View
             style={{
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
             }}
           >
-            {/* Tags */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.tagsScroll}
             >
-              {dailyTags && Array.isArray(dailyTags) ? dailyTags.slice(0, 3).map((tag, index) => (
+              {displayedTags.map((tag, index) => (
                 <TagChip
                   key={tag.id}
                   label={tag.name}
@@ -217,10 +298,9 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                   size="medium"
                   style={styles.tag}
                 />
-              )) : null}
+              ))}
             </ScrollView>
 
-            {/* Question Card */}
             <ModeCard color="mint" style={styles.questionCard}>
               <View style={styles.questionHeader}>
                 <View style={styles.cloudIcon}>
@@ -232,7 +312,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
               <Text style={styles.questionText}>{currentSpark.text}</Text>
             </ModeCard>
 
-            {/* Reveal Insight Button */}
             {!showInsight ? (
               <Button
                 title="Reveal Insight"
@@ -243,7 +322,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                 style={styles.revealButton}
               />
             ) : (
-              // Insight Content
               <Animated.View
                 style={{
                   opacity: insightAnim,
@@ -257,7 +335,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                   ],
                 }}
               >
-                {/* Fun Fact */}
                 {currentSpark.funFact && (
                   <SoftCard style={styles.insightCard}>
                     <Text style={styles.insightLabel}>Fun Fact</Text>
@@ -267,7 +344,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                   </SoftCard>
                 )}
 
-                {/* Application */}
                 {currentSpark.application && (
                   <SoftCard style={styles.insightCard}>
                     <Text style={styles.insightLabel}>Real Application</Text>
@@ -277,7 +353,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                   </SoftCard>
                 )}
 
-                {/* Knowledge (if exists) */}
                 {currentSpark.knowledge && (
                   <SoftCard style={styles.insightCard}>
                     <Text style={styles.insightLabel}>Learn More</Text>
@@ -289,8 +364,8 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
               </Animated.View>
             )}
 
-            {/* Concept Links */}
-            {currentSpark.conceptLinks && Array.isArray(currentSpark.conceptLinks) &&
+            {currentSpark.conceptLinks &&
+              Array.isArray(currentSpark.conceptLinks) &&
               currentSpark.conceptLinks.length > 0 && (
                 <View style={styles.conceptsSection}>
                   <Text style={styles.conceptsTitle}>Related Concepts</Text>
@@ -304,7 +379,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
                 </View>
               )}
 
-            {/* Actions */}
             <View style={styles.actions}>
               <Button
                 title="Generate Another"
@@ -321,7 +395,6 @@ export const QuickSparkScreen: React.FC<QuickSparkScreenProps> = ({
         <View style={{ height: SPACING.huge }} />
       </ScrollView>
 
-      {/* Bottom Actions (Save & Share) */}
       {currentSpark && (
         <View style={styles.bottomActions}>
           <TouchableOpacity style={styles.bottomButton} onPress={handleSave}>
@@ -439,7 +512,7 @@ const styles = StyleSheet.create({
   cloudIcon: {
     width: 32,
     height: 32,
-    borderRadius: BORDER_RADIUS.full,
+    borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.25)",
     justifyContent: "center",
     alignItems: "center",
@@ -477,7 +550,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.neutral.gray700,
     lineHeight: FONT_SIZES.sm * 1.5,
-    textAlign: 'justify',
+    textAlign: "justify",
   },
   conceptsSection: {
     marginTop: SPACING.base,
@@ -498,7 +571,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary.light,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
+    borderRadius: SPACING.xxl,
     margin: SPACING.xs,
   },
   conceptText: {

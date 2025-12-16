@@ -1,4 +1,4 @@
-// src/screens/main/HomeScreen.tsx - COMPLETELY FIXED
+// src/screens/main/HomeScreen.tsx - UPDATED
 
 import React, { useEffect, useState } from "react";
 import {
@@ -9,15 +9,18 @@ import {
   ScrollView,
   Animated,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTagStore } from "@stores/tagStore";
 import { useSparkStore } from "@stores/sparkStore";
+import { Tag } from "@type/tag.types";
 import notificationService from "@/services/notifications/notificationService";
 import TagChip from "@components/tags/TagChip";
 import SparkCard from "@components/spark/SparkCard";
-import Button from "@components/common/Button";
 import { ModeCard } from "@components/common/Card";
+import { TagReplacementModal } from "@components/tags/TagReplacementModal";
+import { CustomAlert } from "@components/common/CustomAlert";
 import {
   COLORS,
   SPACING,
@@ -25,6 +28,7 @@ import {
   FONT_WEIGHTS,
   ANIMATION,
 } from "@constants/colors";
+import { getSplitGreeting } from "@utils/greetingUtils";
 
 interface HomeScreenProps {
   navigation: any;
@@ -33,18 +37,70 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const {
     dailyTags,
+    selectedTagForGenerate,
     loadDailyTags,
     generateDailyTags,
+    replaceDailyTag,
+    selectTagForGenerate,
     isLoading: tagsLoading,
   } = useTagStore();
 
   const { recentSparks, loadRecentSparks } = useSparkStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [greeting, setGreeting] = useState<string>("");
+  const [subject, setSubject] = useState<string>("");
+  const [showTagReplacement, setShowTagReplacement] = useState(false);
+  const [tagToReplace, setTagToReplace] = useState<Tag | null>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: true,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(20)).current;
 
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? true,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
+
   useEffect(() => {
+    // Set the greeting when component mounts
+    const { greeting: greetingText, subject: subjectText } = getSplitGreeting();
+    setGreeting(greetingText);
+    setSubject(subjectText);
+
     loadData();
 
     // Entrance animation
@@ -96,6 +152,70 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     await generateDailyTags(true);
   };
 
+  const handleTagLongPress = (tag: Tag) => {
+    console.log(`[HomeScreen] Long press on tag: ${tag.name}`);
+
+    showAlert(
+      "Replace Tag",
+      `Replace "${tag.name}" with another tag?`,
+      () => {
+        console.log(`[HomeScreen] User confirmed replacement for: ${tag.name}`);
+        setTagToReplace(tag);
+        setShowTagReplacement(true);
+      },
+      undefined, // onCancel - will use default empty function
+      {
+        confirmText: "Replace",
+        cancelText: "Cancel",
+        type: "default",
+      }
+    );
+  };
+
+  const handleTagPress = (tag: Tag) => {
+    console.log(`[HomeScreen] Short press on tag: ${tag.name}`);
+    // Toggle selection for generate
+    if (selectedTagForGenerate === tag.id) {
+      selectTagForGenerate(null); // Deselect
+    } else {
+      selectTagForGenerate(tag.id); // Select
+    }
+  };
+
+  const handleTagReplace = async (newTag: Tag) => {
+    console.log(
+      `[HomeScreen] Replacing tag. Old: ${tagToReplace?.name}, New: ${newTag.name}`
+    );
+    if (tagToReplace) {
+      try {
+        await replaceDailyTag(tagToReplace.id, newTag.id);
+        setShowTagReplacement(false);
+        setTagToReplace(null);
+
+        console.log("[HomeScreen] Tag replacement successful");
+
+        // Re-animate
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 0.8,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      } catch (error: any) {
+        console.error("[HomeScreen] Tag replacement failed:", error);
+        showAlert("Error", error.message, undefined, undefined, {
+          type: "error",
+        });
+      }
+    }
+  };
+
   const handleModePress = (mode: 1 | 2 | 3) => {
     switch (mode) {
       case 1:
@@ -116,6 +236,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -139,7 +278,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         >
           <View style={styles.headerTop}>
-            <Text style={styles.greeting}>Curiosity Engine</Text>
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greeting}>{greeting} 👋</Text>
+              <Text style={styles.subject}>{subject}</Text>
+            </View>
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => navigation.navigate("Settings")}
@@ -161,7 +303,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           ]}
         >
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Themes</Text>
+            <View>
+              <Text style={styles.sectionTitle}>Today's Themes</Text>
+              <Text style={styles.sectionSubtitle}>
+                {selectedTagForGenerate
+                  ? "Tap to deselect • Hold to replace"
+                  : "Tap to select • Hold to replace"}
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={handleShuffleTags}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -176,40 +325,69 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             contentContainerStyle={styles.tagsScroll}
           >
             {safeDailyTags.length > 0 ? (
-              safeDailyTags.map((tag, index) => (
-                <Animated.View
-                  key={tag.id}
-                  style={{
-                    opacity: fadeAnim,
-                    transform: [
-                      {
-                        translateX: fadeAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [50 * (index + 1), 0],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <TagChip
-                    label={tag.name}
-                    selected
-                    color={
-                      ["mint", "coral", "sunny", "sky", "rose"][
-                        index % 5
-                      ] as any
-                    }
-                    size="medium"
-                    style={styles.tag}
-                  />
-                </Animated.View>
-              ))
+              safeDailyTags.map((tag, index) => {
+                const isSelectedForGenerate = selectedTagForGenerate === tag.id;
+                return (
+                  <Animated.View
+                    key={tag.id}
+                    style={{
+                      opacity: fadeAnim,
+                      transform: [
+                        {
+                          translateX: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [50 * (index + 1), 0],
+                          }),
+                        },
+                        {
+                          scale: isSelectedForGenerate
+                            ? fadeAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [1, 1.05],
+                              })
+                            : 1,
+                        },
+                      ],
+                    }}
+                  >
+                    <TagChip
+                      label={tag.name}
+                      selected={isSelectedForGenerate}
+                      onPress={() => handleTagPress(tag)}
+                      onLongPress={() => handleTagLongPress(tag)}
+                      color={
+                        isSelectedForGenerate
+                          ? "coral"
+                          : (["mint", "sunny", "sky", "rose"][index % 4] as any)
+                      }
+                      size="medium"
+                      style={styles.tag}
+                      animated
+                    />
+                  </Animated.View>
+                );
+              })
             ) : (
               <Text style={styles.emptyText}>
                 {tagsLoading ? "Loading themes..." : "No themes available"}
               </Text>
             )}
           </ScrollView>
+
+          {selectedTagForGenerate && (
+            <View style={styles.selectionHint}>
+              <Text style={styles.selectionHintIcon}>✨</Text>
+              <Text style={styles.selectionHintText}>
+                Next spark will be generated using:{" "}
+                <Text style={styles.selectionHintTag}>
+                  {
+                    safeDailyTags.find((t) => t.id === selectedTagForGenerate)
+                      ?.name
+                  }
+                </Text>
+              </Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Explore Modes */}
@@ -221,7 +399,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.sectionTitle}>Explore</Text>
+          <Text style={styles.exploreTitle}>Explore</Text>
 
           {/* Quick Spark Card */}
           <Animated.View
@@ -349,6 +527,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   onPress={() =>
                     navigation.navigate("SparkDetail", { sparkId: spark.id })
                   }
+                  onSave={async () => {
+                    const { toggleSaved } = useSparkStore.getState();
+                    await toggleSaved(spark.id);
+                    await loadRecentSparks(5); // Reload recent sparks to reflect changes
+                  }}
+                  onShare={() => {
+                    // Share functionality
+                    console.log("Share spark:", spark.id);
+                    // In a real implementation, you would integrate with sharing APIs
+                  }}
                 />
               </Animated.View>
             ))}
@@ -357,6 +545,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         <View style={{ height: SPACING.huge }} />
       </ScrollView>
+
+      {/* Tag Replacement Modal */}
+      <TagReplacementModal
+        visible={showTagReplacement}
+        currentTag={tagToReplace}
+        onClose={() => {
+          setShowTagReplacement(false);
+          setTagToReplace(null);
+        }}
+        onReplace={handleTagReplace}
+      />
     </SafeAreaView>
   );
 };
@@ -379,10 +578,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  greetingContainer: {
+    alignItems: "flex-start",
+  },
   greeting: {
-    fontSize: FONT_SIZES.xxl,
+    fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
+    lineHeight: FONT_SIZES.xl * 1.2,
+  },
+  subject: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.gray600,
+    fontWeight: FONT_WEIGHTS.light,
+    lineHeight: FONT_SIZES.base * 1.2,
   },
   settingsButton: {
     width: 40,
@@ -402,13 +611,24 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: SPACING.md,
+  },
+  exploreTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.neutral.black,
+    marginBottom: SPACING.md + 3,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.neutral.black,
+  },
+  sectionSubtitle: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.gray600,
+    marginTop: SPACING.xs / 2,
   },
   shuffleButton: {
     fontSize: FONT_SIZES.sm,
@@ -429,6 +649,29 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.neutral.gray500,
     fontSize: FONT_SIZES.sm,
+  },
+  selectionHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.secondary.light,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.sm,
+    borderRadius: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  selectionHintIcon: {
+    fontSize: 16,
+    marginRight: SPACING.xs,
+  },
+  selectionHintText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray700,
+    lineHeight: FONT_SIZES.sm * 1.4,
+  },
+  selectionHintTag: {
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.secondary.main,
   },
   modeCard: {
     marginBottom: SPACING.md,

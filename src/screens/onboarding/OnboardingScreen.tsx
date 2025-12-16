@@ -20,6 +20,7 @@ import Card from "@components/common/Card";
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from "@constants/colors";
 import { mmkvService } from "@services/storage/mmkvService";
 import ErrorTracker from "@utils/errorTracker";
+import { CustomAlert } from "@components/common/CustomAlert";
 
 interface OnboardingScreenProps {
   navigation: any;
@@ -38,6 +39,45 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: false,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? false,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -96,7 +136,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
       }
     } catch (err: any) {
       ErrorTracker.error("OnboardingScreen.handleContinue", err);
-      Alert.alert("Error", "Failed to complete onboarding");
+      showAlert("Error", "Failed to complete onboarding", undefined, undefined, { type: "error" });
     }
   };
 
@@ -166,6 +206,25 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}

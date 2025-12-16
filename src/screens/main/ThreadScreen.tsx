@@ -27,7 +27,7 @@ interface ThreadScreenProps {
 }
 
 export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
-  const { clusters, stats, isLoading, loadGraph, detectClusters } =
+  const { clusters, stats, isLoading, loadGraph, detectClusters, loadStatsOnly } =
     useThreadStore();
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -38,7 +38,8 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
   });
 
   useEffect(() => {
-    loadData();
+    // Load data in a more efficient way to avoid heavy initial loading
+    loadDataEfficiently();
   }, []);
 
   useEffect(() => {
@@ -52,14 +53,34 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
     }
   }, [isLoading, stats]);
 
-  const loadData = async () => {
+  // Load data more efficiently by deferring expensive operations
+  const loadDataEfficiently = async () => {
     try {
-      await loadGraph();
-      if (!clusters || clusters.length === 0) {
-        await detectClusters();
-      }
+      // First load only lightweight stats for faster initial load
+      await loadStatsOnly();
+
+      // Then, if needed, load full data after a short delay to allow UI to render
+      setTimeout(async () => {
+        try {
+          await loadGraph();
+        } catch (innerError) {
+          console.error("[ThreadScreen] Load full graph failed:", innerError);
+        }
+
+        // Run cluster detection only if there are no clusters and it's needed
+        if (clusters && clusters.length === 0) {
+          setTimeout(async () => {
+            try {
+              await detectClusters();
+            } catch (clusterError) {
+              console.error("[ThreadScreen] Cluster detection failed:", clusterError);
+            }
+          }, 1000); // Delay cluster detection to allow initial render
+        }
+      }, 500); // Delay full data loading to allow initial UI render
+
     } catch (error) {
-      console.error("[ThreadScreen] Load failed:", error);
+      console.error("[ThreadScreen] Efficient load failed:", error);
     }
   };
 
@@ -134,11 +155,6 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({ navigation }) => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thread 🧵</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -349,16 +365,19 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.md,
+    position: "relative",
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    position: "absolute",
+    left: SPACING.base,
   },
   backIcon: {
     fontSize: 24,

@@ -296,6 +296,30 @@ class ConceptGraphEngine {
     console.log("[ConceptGraph] Graph reset complete");
   }
 
+  async getConceptCount(): Promise<number> {
+    try {
+      const result = await sqliteService.query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM concept_nodes`
+      );
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("[ConceptGraph] Error getting concept count:", error);
+      return 0;
+    }
+  }
+
+  async getLinkCount(): Promise<number> {
+    try {
+      const result = await sqliteService.query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM concept_links`
+      );
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("[ConceptGraph] Error getting link count:", error);
+      return 0;
+    }
+  }
+
   private mapRowToNode(row: any): ConceptNode {
     return {
       id: row.id,

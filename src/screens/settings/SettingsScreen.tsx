@@ -16,6 +16,7 @@ import { useThreadStore } from "@stores/threadStore";
 import notificationService from "@/services/notifications/notificationService";
 import { SoftCard } from "@components/common/Card";
 import Button from "@components/common/Button";
+import { CustomAlert } from "@components/common/CustomAlert";
 import {
   COLORS,
   SPACING,
@@ -46,39 +47,100 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const { resetGraph } = useThreadStore();
 
+  // State for custom alert
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    showCancel: true,
+    type: "default" as "default" | "warning" | "error" | "success",
+    confirmStyle: "default" as "default" | "destructive",
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    options: {
+      confirmText?: string;
+      cancelText?: string;
+      showCancel?: boolean;
+      type?: "default" | "warning" | "error" | "success";
+      confirmStyle?: "default" | "destructive";
+    } = {}
+  ) => {
+    setAlertConfig({
+      title,
+      message,
+      confirmText: options.confirmText || "OK",
+      cancelText: options.cancelText || "Cancel",
+      showCancel: options.showCancel ?? true,
+      type: options.type || "default",
+      confirmStyle: options.confirmStyle || "default",
+      onConfirm: onConfirm || (() => {}),
+      onCancel: onCancel || (() => {}),
+    });
+    setAlertVisible(true);
+  };
+
   const handleResetData = () => {
-    Alert.alert(
+    showAlert(
       "Reset All Data",
       "This will delete all your sparks, concepts, and reset your tags. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            await tagEngine.resetTagUsage();
-            await resetGraph();
-            Alert.alert("Success", "All data has been reset");
-          },
-        },
-      ]
+      async () => {
+        await tagEngine.resetTagUsage();
+        await resetGraph();
+        showAlert(
+          "Success",
+          "All data has been reset",
+          () => {},
+          undefined,
+          {
+            confirmText: "OK",
+            showCancel: false,
+            type: "success"
+          }
+        );
+      },
+      undefined, // onCancel - will use default empty function
+      {
+        confirmText: "Reset",
+        cancelText: "Cancel",
+        type: "warning",
+        confirmStyle: "destructive",
+      }
     );
   };
 
   const handleResetSettings = () => {
-    Alert.alert(
+    showAlert(
       "Reset Settings",
       "This will restore all settings to default values.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          onPress: () => {
-            resetSettings();
-            Alert.alert("Success", "Settings restored to default");
-          },
-        },
-      ]
+      () => {
+        resetSettings();
+        showAlert(
+          "Success",
+          "Settings restored to default",
+          () => {},
+          undefined,
+          {
+            confirmText: "OK",
+            showCancel: false,
+            type: "success"
+          }
+        );
+      },
+      undefined,
+      {
+        confirmText: "Reset",
+        cancelText: "Cancel",
+        type: "warning",
+      }
     );
   };
 
@@ -88,21 +150,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     if (value) {
       await notificationService.initialize();
       await notificationService.scheduleSparkReminder();
-      Alert.alert(
+      showAlert(
         "Notifications Enabled",
-        "You will receive daily reminders to generate sparks."
+        "You will receive daily reminders to generate sparks.",
+        undefined,
+        undefined,
+        { type: "success", showCancel: false }
       );
     } else {
       await notificationService.cancelAllNotifications();
-      Alert.alert(
+      showAlert(
         "Notifications Disabled",
-        "Daily reminders have been turned off."
+        "Daily reminders have been turned off.",
+        undefined,
+        undefined,
+        { type: "default", showCancel: false }
       );
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={() => {
+          alertConfig.onConfirm();
+          setAlertVisible(false);
+        }}
+        onCancel={() => {
+          alertConfig.onCancel();
+          setAlertVisible(false);
+        }}
+        showCancel={alertConfig.showCancel}
+        type={alertConfig.type}
+        confirmStyle={alertConfig.confirmStyle}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -286,10 +373,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             title="About Curiosity Engine"
             subtitle="Learn more"
             onPress={() => {
-              Alert.alert(
+              showAlert(
                 "Curiosity Engine",
                 "A personal curiosity companion that helps you explore ideas through AI-powered sparks.\n\nVersion: " +
-                  APP_CONFIG.VERSION
+                  APP_CONFIG.VERSION,
+                undefined,
+                undefined,
+                { type: "default", showCancel: false }
               );
             }}
             showChevron
@@ -503,8 +593,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sliderButton: {
-    width: 44,
-    height: 44,
+    width: 32,
+    height: 32,
     borderRadius: BORDER_RADIUS.full,
     backgroundColor: COLORS.primary.main,
     justifyContent: "center",

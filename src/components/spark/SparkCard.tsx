@@ -1,4 +1,4 @@
-// src/components/spark/SparkCard.tsx - FRESH SPARK CARDS
+// src/components/spark/SparkCard.tsx - REDESIGNED (FRESH & CLEAN)
 
 import React from "react";
 import {
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Spark, SparkMode } from "@type/spark.types";
 import {
   COLORS,
@@ -24,7 +25,7 @@ interface SparkCardProps {
   spark: Spark;
   onPress?: () => void;
   onSave?: () => void;
-  showMode?: boolean;
+  onShare?: () => void;
   compact?: boolean;
 }
 
@@ -32,18 +33,16 @@ export const SparkCard: React.FC<SparkCardProps> = ({
   spark,
   onPress,
   onSave,
-  showMode = true,
+  onShare,
   compact = false,
 }) => {
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
-  const [isExpanded, setIsExpanded] = React.useState(false);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
       useNativeDriver: true,
       speed: 50,
-      bounciness: 0,
     }).start();
   };
 
@@ -52,171 +51,151 @@ export const SparkCard: React.FC<SparkCardProps> = ({
       toValue: 1,
       useNativeDriver: true,
       speed: 50,
-      bounciness: 6,
+      bounciness: 8,
     }).start();
   };
 
-  const getModeColor = (mode: SparkMode) => {
+  const getModeConfig = (mode: SparkMode) => {
     switch (mode) {
       case 1:
         return {
-          color: COLORS.primary.main,
-          light: COLORS.primary.light,
           gradient: COLORS.gradients.mint,
+          icon: "⚡",
+          label: "Quick Spark",
+          badgeColor: COLORS.primary.light,
+          badgeTextColor: COLORS.primary.main,
         };
       case 2:
         return {
-          color: COLORS.secondary.main,
-          light: COLORS.secondary.light,
           gradient: COLORS.gradients.coral,
+          icon: "🌊",
+          label: "Deep Dive",
+          badgeColor: COLORS.secondary.light,
+          badgeTextColor: COLORS.secondary.main,
         };
       case 3:
         return {
-          color: COLORS.info.main,
-          light: COLORS.info.light,
           gradient: COLORS.gradients.sky,
+          icon: "🧵",
+          label: "Thread",
+          badgeColor: COLORS.info.light,
+          badgeTextColor: COLORS.info.main,
         };
       default:
         return {
-          color: COLORS.primary.main,
-          light: COLORS.primary.light,
           gradient: COLORS.gradients.mint,
+          icon: "✨",
+          label: "Spark",
+          badgeColor: COLORS.primary.light,
+          badgeTextColor: COLORS.primary.main,
         };
     }
   };
 
-  const getModeLabel = (mode: SparkMode): string => {
-    switch (mode) {
-      case 1:
-        return "Quick";
-      case 2:
-        return "Deep Dive";
-      case 3:
-        return "Thread";
-      default:
-        return "Spark";
-    }
-  };
+  const config = getModeConfig(spark.mode);
 
-  const getModeIcon = (mode: SparkMode): string => {
-    switch (mode) {
-      case 1:
-        return "⚡";
-      case 2:
-        return "🌊";
-      case 3:
-        return "🧵";
-      default:
-        return "✨";
-    }
-  };
-
-  const truncateText = (text: string, maxLength: number = 120): string => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
-  const displayText =
-    compact && !isExpanded ? truncateText(spark.text) : spark.text;
-  const modeColors = getModeColor(spark.mode);
+  // Extract first 2 concept links as tags
+  const displayTags = spark.conceptLinks?.slice(0, 2) || [];
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
       >
-        <View style={[styles.card, compact && styles.compactCard]}>
-          {/* Mode Badge */}
-          {showMode && (
-            <View
-              style={[styles.modeBadge, { backgroundColor: modeColors.light }]}
-            >
-              <Text style={styles.modeIcon}>{getModeIcon(spark.mode)}</Text>
-              <Text style={[styles.modeLabel, { color: modeColors.color }]}>
-                {getModeLabel(spark.mode)}
-              </Text>
-            </View>
-          )}
+        <View style={styles.card}>
+          {/* Top Gradient Bar */}
+          <LinearGradient
+            colors={config.gradient as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.topBar}
+          />
 
-          {/* Spark Text */}
-          <Text style={styles.sparkText}>{displayText}</Text>
-
-          {/* Expand/Collapse for compact mode */}
-          {compact && spark.text.length > 120 && (
-            <TouchableOpacity
-              onPress={() => setIsExpanded(!isExpanded)}
-              style={styles.expandButton}
-            >
-              <Text style={[styles.expandText, { color: modeColors.color }]}>
-                {isExpanded ? "Show less" : "Read more"}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Concept Links (if not compact) */}
-          {!compact && spark.conceptLinks && Array.isArray(spark.conceptLinks) && spark.conceptLinks.length > 0 && (
-            <View style={styles.conceptsContainer}>
-              {spark.conceptLinks.slice(0, 3).map((concept, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.conceptChip,
-                    { backgroundColor: modeColors.light },
-                  ]}
+          {/* Card Content */}
+          <View style={styles.content}>
+            {/* Header Row */}
+            <View style={styles.headerRow}>
+              {/* Mode Badge */}
+              <View
+                style={[
+                  styles.modeBadge,
+                  { backgroundColor: config.badgeColor },
+                ]}
+              >
+                <Text style={styles.modeIcon}>{config.icon}</Text>
+                <Text
+                  style={[styles.modeLabel, { color: config.badgeTextColor }]}
                 >
-                  <Text
-                    style={[styles.conceptText, { color: modeColors.color }]}
-                  >
-                    {concept}
-                  </Text>
-                </View>
-              ))}
-              {spark.conceptLinks.length > 3 && (
-                <View
-                  style={[
-                    styles.conceptChip,
-                    { backgroundColor: modeColors.light },
-                  ]}
-                >
-                  <Text
-                    style={[styles.conceptText, { color: modeColors.color }]}
-                  >
-                    +{spark.conceptLinks.length - 3}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+                  {config.label}
+                </Text>
+              </View>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.timestamp}>
-              {formatDate(spark.createdAt, "relative")}
+              {/* Actions */}
+              <View style={styles.actions}>
+                {onSave && (
+                  <TouchableOpacity
+                    onPress={onSave}
+                    style={styles.actionButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.actionIcon}>
+                      {spark.saved ? "❤️" : "🤍"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {onShare && (
+                  <TouchableOpacity
+                    onPress={onShare}
+                    style={styles.actionButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.actionIcon}>📤</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.title} numberOfLines={compact ? 2 : undefined}>
+              {spark.text}
             </Text>
 
-            <View style={styles.actions}>
-              {/* Viewed indicator */}
-              {spark.viewed && (
-                <View style={styles.viewedBadge}>
-                  <Text style={styles.viewedIcon}>👁</Text>
+            {/* Description (if has knowledge) */}
+            {spark.knowledge && !compact && (
+              <Text style={styles.description} numberOfLines={2}>
+                {spark.knowledge.substring(0, 120)}...
+              </Text>
+            )}
+
+            {/* Tags and Date Row */}
+            <View style={styles.tagsAndDateRow}>
+              {/* Tags */}
+              {displayTags.length > 0 && (
+                <View style={styles.tagsContainer}>
+                  {displayTags.map((tag, index) => (
+                    <View key={index} style={styles.tag}>
+                      <Text style={styles.tagText}>{tag}</Text>
+                    </View>
+                  ))}
                 </View>
               )}
 
-              {/* Save button */}
-              {onSave && (
-                <TouchableOpacity
-                  onPress={onSave}
-                  style={styles.saveButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={styles.saveIcon}>
-                    {spark.saved ? "❤" : "🤍"}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* Creation Date */}
+              <View style={styles.dateContainer}>
+                <Text style={styles.dateText}>
+                  {formatDate(spark.createdAt, "relative")}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -226,24 +205,34 @@ export const SparkCard: React.FC<SparkCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: SPACING.base,
+  },
   card: {
     backgroundColor: COLORS.neutral.white,
     borderRadius: BORDER_RADIUS.xxl,
-    padding: SPACING.base,
-    marginVertical: SPACING.sm,
-    ...SHADOWS.soft,
+    overflow: "hidden",
+    ...SHADOWS.card,
   },
-  compactCard: {
-    padding: SPACING.md,
+  topBar: {
+    height: 6,
+    width: "100%",
+  },
+  content: {
+    padding: SPACING.base,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.md,
   },
   modeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: BORDER_RADIUS.full,
-    marginBottom: SPACING.md,
   },
   modeIcon: {
     fontSize: FONT_SIZES.sm,
@@ -253,66 +242,69 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.semibold,
   },
-  sparkText: {
-    fontSize: FONT_SIZES.base,
-    lineHeight: FONT_SIZES.base * 1.5,
-    color: COLORS.neutral.black,
-    fontWeight: FONT_WEIGHTS.medium,
-    marginBottom: SPACING.md,
-  },
-  expandButton: {
-    alignSelf: "flex-start",
-    marginBottom: SPACING.sm,
-  },
-  expandText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.semibold,
-  },
-  conceptsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: SPACING.sm,
-  },
-  conceptChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
-    marginRight: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  conceptText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: FONT_WEIGHTS.semibold,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: SPACING.xs,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.neutral.gray100,
-  },
-  timestamp: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.neutral.gray500,
-    fontWeight: FONT_WEIGHTS.medium,
-  },
   actions: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACING.xs,
   },
-  viewedBadge: {
-    marginRight: SPACING.sm,
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.neutral.gray50,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  viewedIcon: {
+  actionIcon: {
+    fontSize: FONT_SIZES.base,
+  },
+  title: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.neutral.gray600,
+    lineHeight: FONT_SIZES.lg * 1.3,
+    marginBottom: SPACING.lg,
+    paddingLeft: SPACING.xs,
+  },
+  description: {
     fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral.gray600,
+    lineHeight: FONT_SIZES.sm * 1.5,
+    marginBottom: SPACING.md,
   },
-  saveButton: {
-    padding: SPACING.xs / 2,
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACING.xs,
   },
-  saveIcon: {
-    fontSize: FONT_SIZES.lg,
+  tag: {
+    backgroundColor: COLORS.neutral.gray100,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  tagText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.gray600,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  tagsAndDateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: SPACING.sm,
+  },
+  dateContainer: {
+    backgroundColor: COLORS.neutral.gray100,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+    marginLeft: SPACING.sm,
+  },
+  dateText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.neutral.gray500,
+    fontWeight: FONT_WEIGHTS.medium,
   },
 });
 
