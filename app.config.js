@@ -6,12 +6,12 @@ export default {
     slug: "curiosity-engine",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/ian.png",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./assets/splash-icon.png",
+      image: "./assets/ian.png",
       resizeMode: "contain",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#F9F5EC",
     },
     updates: {
       fallbackToCacheTimeout: 0,
@@ -23,13 +23,13 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#FFFFFF",
+        foregroundImage: "./assets/ian.png",
+        backgroundColor: "#F9F5EC",
       },
       package: "com.yourcompany.curiosityengine",
     },
     web: {
-      favicon: "./assets/favicon.png",
+      favicon: "./assets/ian.png",
     },
     extra: {
       // Add your API key here
