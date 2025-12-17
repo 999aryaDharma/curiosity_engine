@@ -174,7 +174,13 @@ export const AppNavigator: React.FC = () => {
           }}
         />
         <Stack.Screen name="History" component={HistoryScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            animation: "slide_from_right",
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

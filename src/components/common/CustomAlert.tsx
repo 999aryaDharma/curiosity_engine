@@ -127,8 +127,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
           icon: "⚠️",
           iconBg: COLORS.accent.light,
           cardBorder: COLORS.accent.main,
-          confirmButtonColor: COLORS.accent.main,
-          cancelButtonColor: COLORS.accent.lighter,
+          confirmButtonColor: COLORS.accent.lighter,
+          cancelButtonColor: COLORS.accent.main,
         };
       case "error":
         return {
@@ -226,17 +226,19 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
             </View>
 
             {/* Buttons */}
-            <View style={styles.buttonContainer}>
+            <View
+              style={[
+                styles.buttonContainer,
+                { justifyContent: showCancel ? "space-between" : "center" }
+              ]}
+            >
               {showCancel && (
                 <Button
                   title={cancelText}
                   variant={type === "default" ? "soft" : "ghost"}
                   size="medium"
                   onPress={handleCancel}
-                  style={{
-                    ...styles.button,
-                    ...(showCancel && styles.buttonWithMargin),
-                  }}
+                  style={styles.button}
                   textStyle={
                     type !== "default"
                       ? { color: config.cancelButtonColor } // Use alert-specific cancel button color
@@ -261,6 +263,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
                 onPress={handleConfirm}
                 style={{
                   ...styles.button,
+                  ...(showCancel && styles.buttonWithMargin),
                   ...(!showCancel && styles.buttonFullWidth),
                   ...(confirmStyle === "destructive" &&
                     styles.destructiveButton),
@@ -355,7 +358,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   button: {
-    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonWithMargin: {
     marginRight: SPACING.sm,

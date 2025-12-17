@@ -542,8 +542,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             ))}
           </Animated.View>
         )}
-
-        <View style={{ height: SPACING.huge }} />
       </ScrollView>
 
       {/* Tag Replacement Modal */}
@@ -566,7 +564,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.neutral.offWhite,
   },
   scrollContent: {
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING.xs * 0,
   },
   header: {
     paddingHorizontal: SPACING.base,
@@ -580,6 +578,7 @@ const styles = StyleSheet.create({
   },
   greetingContainer: {
     alignItems: "flex-start",
+    marginTop: SPACING.sm
   },
   greeting: {
     fontSize: FONT_SIZES.xl,

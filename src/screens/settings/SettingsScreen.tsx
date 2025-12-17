@@ -1,6 +1,4 @@
-// src/screens/settings/SettingsScreen.tsx - FRESH SETTINGS
-
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useReducer } from "react";
 import {
   View,
   Text,
@@ -8,8 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  Alert,
+  PanResponder,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+  cancelAnimation,
+  SlideInRight,
+  SlideOutRight,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSettingsStore } from "@stores/settingsStore";
 import { useThreadStore } from "@stores/threadStore";
@@ -23,10 +30,31 @@ import {
   FONT_SIZES,
   FONT_WEIGHTS,
   BORDER_RADIUS,
-  ANIMATION,
 } from "@constants/colors";
 import { APP_CONFIG } from "@constants/config";
 import tagEngine from "@services/tag-engine/tagEngine";
+
+// Create an Animated version of SafeAreaView to handle page transitions
+const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
+
+// Define alert queue actions and reducer outside component for stability
+type AlertQueueAction =
+  | { type: "ADD_ALERT"; payload: any }
+  | { type: "REMOVE_FIRST" }
+  | { type: "CLEAR" };
+
+const alertQueueReducer = (state: any[], action: AlertQueueAction): any[] => {
+  switch (action.type) {
+    case "ADD_ALERT":
+      return [...state, action.payload];
+    case "REMOVE_FIRST":
+      return state.length > 0 ? state.slice(1) : state;
+    case "CLEAR":
+      return [];
+    default:
+      return state;
+  }
+};
 
 interface SettingsScreenProps {
   navigation: any;
@@ -47,19 +75,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const { resetGraph } = useThreadStore();
 
-  // State for custom alert
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({
-    title: "",
-    message: "",
-    confirmText: "OK",
-    cancelText: "Cancel",
-    showCancel: true,
-    type: "default" as "default" | "warning" | "error" | "success",
-    confirmStyle: "default" as "default" | "destructive",
-    onConfirm: () => {},
-    onCancel: () => {},
-  });
+  // State for custom alert queue using reducer
+  const [alertQueue, dispatchAlert] = useReducer(alertQueueReducer, []);
 
   const showAlert = (
     title: string,
@@ -74,7 +91,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       confirmStyle?: "default" | "destructive";
     } = {}
   ) => {
-    setAlertConfig({
+    const alert = {
+      id: Date.now() + Math.random(), // Unique ID to track alerts
       title,
       message,
       confirmText: options.confirmText || "OK",
@@ -84,8 +102,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       confirmStyle: options.confirmStyle || "default",
       onConfirm: onConfirm || (() => {}),
       onCancel: onCancel || (() => {}),
-    });
-    setAlertVisible(true);
+    };
+
+    dispatchAlert({ type: "ADD_ALERT", payload: alert });
   };
 
   const handleResetData = () => {
@@ -93,19 +112,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       "Reset All Data",
       "This will delete all your sparks, concepts, and reset your tags. This action cannot be undone.",
       async () => {
-        await tagEngine.resetTagUsage();
-        await resetGraph();
-        showAlert(
-          "Success",
-          "All data has been reset",
-          () => {},
-          undefined,
-          {
-            confirmText: "OK",
-            showCancel: false,
-            type: "success"
-          }
-        );
+        try {
+          await tagEngine.resetTagUsage();
+          await resetGraph();
+          // Increased timeout to 500ms to allow the previous modal to fully close/animate out
+          // before trying to show the success modal.
+          setTimeout(() => {
+            showAlert(
+              "Success",
+              "All data has been reset",
+              () => {},
+              undefined,
+              {
+                confirmText: "OK",
+                showCancel: false,
+                type: "success",
+              }
+            );
+          }, 500);
+        } catch (error) {
+          console.error("Reset data failed:", error);
+        }
       },
       undefined, // onCancel - will use default empty function
       {
@@ -123,17 +150,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       "This will restore all settings to default values.",
       () => {
         resetSettings();
-        showAlert(
-          "Success",
-          "Settings restored to default",
-          () => {},
-          undefined,
-          {
-            confirmText: "OK",
-            showCancel: false,
-            type: "success"
-          }
-        );
+        // Increased timeout to 500ms
+        setTimeout(() => {
+          showAlert(
+            "Success",
+            "Settings restored to default",
+            () => {},
+            undefined,
+            {
+              confirmText: "OK",
+              showCancel: false,
+              type: "success",
+            }
+          );
+        }, 500);
       },
       undefined,
       {
@@ -170,24 +200,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <AnimatedSafeAreaView
+      style={styles.container}
+      edges={["top"]}
+      // Animasi masuk dari kanan (Slide In)
+      entering={SlideInRight.duration(300)}
+      // Animasi keluar ke kanan (Slide Out) saat unmount/goBack
+      exiting={SlideOutRight.duration(300)}
+    >
       <CustomAlert
-        visible={alertVisible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        confirmText={alertConfig.confirmText}
-        cancelText={alertConfig.cancelText}
-        onConfirm={() => {
-          alertConfig.onConfirm();
-          setAlertVisible(false);
+        // Key ensures React remounts component on new alert ID
+        key={alertQueue[0]?.id || "alert-hidden"}
+        visible={alertQueue.length > 0}
+        title={alertQueue[0]?.title || ""}
+        message={alertQueue[0]?.message || ""}
+        confirmText={alertQueue[0]?.confirmText || "OK"}
+        cancelText={alertQueue[0]?.cancelText || "Cancel"}
+        onConfirm={async () => {
+          if (alertQueue.length > 0) {
+            const currentAlert = alertQueue[0];
+            // Remove first, THEN execute callback to allow UI to begin closing
+            dispatchAlert({ type: "REMOVE_FIRST" });
+
+            if (currentAlert.onConfirm) {
+              await currentAlert.onConfirm();
+            }
+          }
         }}
-        onCancel={() => {
-          alertConfig.onCancel();
-          setAlertVisible(false);
+        onCancel={async () => {
+          if (alertQueue.length > 0) {
+            const currentAlert = alertQueue[0];
+            dispatchAlert({ type: "REMOVE_FIRST" });
+
+            if (currentAlert.onCancel) {
+              await currentAlert.onCancel();
+            }
+          }
         }}
-        showCancel={alertConfig.showCancel}
-        type={alertConfig.type}
-        confirmStyle={alertConfig.confirmStyle}
+        showCancel={alertQueue[0]?.showCancel}
+        type={alertQueue[0]?.type}
+        confirmStyle={alertQueue[0]?.confirmStyle}
       />
 
       {/* Header */}
@@ -206,6 +258,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        scrollEnabled={true}
       >
         {/* Preferences Section */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
@@ -271,6 +324,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <Text style={styles.sectionTitle}>SPARK SETTINGS</Text>
 
         <SoftCard style={styles.settingsCard}>
+          {/* Difficulty Slider */}
           <View style={styles.sliderRow}>
             <View style={styles.sliderIconContainer}>
               <Text style={styles.sliderIcon}>🎚</Text>
@@ -284,41 +338,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
           </View>
 
-          <View style={styles.sliderContainer}>
-            <View style={styles.sliderTrack}>
-              <View
-                style={[
-                  styles.sliderFill,
-                  { width: `${settings.difficultyLevel * 100}%` },
-                ]}
-              />
-            </View>
-            <View style={styles.sliderButtons}>
-              <TouchableOpacity
-                style={styles.sliderButton}
-                onPress={() =>
-                  setDifficultyLevel(
-                    Math.max(0, settings.difficultyLevel - 0.1)
-                  )
-                }
-              >
-                <Text style={styles.sliderButtonText}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sliderButton}
-                onPress={() =>
-                  setDifficultyLevel(
-                    Math.min(1, settings.difficultyLevel + 0.1)
-                  )
-                }
-              >
-                <Text style={styles.sliderButtonText}>+</Text>
-              </TouchableOpacity>
+          <View style={styles.sliderWrapper}>
+            <ReanimatedSlider
+              min={0}
+              max={1}
+              step={0.1}
+              value={settings.difficultyLevel}
+              onValueChange={setDifficultyLevel}
+            />
+            <View style={styles.sliderLabels}>
+              <Text style={styles.sliderLabelText}>Focused</Text>
+              <Text style={styles.sliderLabelText}>Wild</Text>
             </View>
           </View>
 
           <Divider />
 
+          {/* Deep Dive Layers Slider */}
           <View style={styles.sliderRow}>
             <View style={styles.sliderIconContainer}>
               <Text style={styles.sliderIcon}>🌊</Text>
@@ -326,33 +362,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={styles.sliderTextContainer}>
               <Text style={styles.settingTitle}>Deep Dive Layers</Text>
               <Text style={styles.settingSubtitle}>
-                {settings.maxDeepDiveLayers} layers
+                {settings.maxDeepDiveLayers} layers depth
               </Text>
             </View>
           </View>
 
-          <View style={styles.sliderButtons}>
-            <TouchableOpacity
-              style={styles.sliderButton}
-              onPress={() =>
-                setMaxDeepDiveLayers(
-                  Math.max(3, settings.maxDeepDiveLayers - 1)
-                )
-              }
-            >
-              <Text style={styles.sliderButtonText}>−</Text>
-            </TouchableOpacity>
-            <Text style={styles.layerCount}>{settings.maxDeepDiveLayers}</Text>
-            <TouchableOpacity
-              style={styles.sliderButton}
-              onPress={() =>
-                setMaxDeepDiveLayers(
-                  Math.min(6, settings.maxDeepDiveLayers + 1)
-                )
-              }
-            >
-              <Text style={styles.sliderButtonText}>+</Text>
-            </TouchableOpacity>
+          <View style={styles.sliderWrapper}>
+            <ReanimatedSlider
+              min={3}
+              max={6}
+              step={1}
+              value={settings.maxDeepDiveLayers}
+              onValueChange={setMaxDeepDiveLayers}
+            />
+            <View style={styles.sliderLabels}>
+              <Text style={styles.sliderLabelText}>3 Layers</Text>
+              <Text style={styles.sliderLabelText}>6 Layers</Text>
+            </View>
           </View>
         </SoftCard>
 
@@ -389,37 +415,158 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Danger Zone Section */}
         <Text style={styles.sectionTitle}>DANGER ZONE</Text>
 
-        <SoftCard style={{
-          ...styles.settingsCard,
-          ...styles.dangerCard,
-        }}>
-          <Button
+        <SoftCard style={styles.settingsCard}>
+          <SettingRow
+            icon="↻"
             title="Reset All Settings"
+            subtitle="Restore defaults"
             onPress={handleResetSettings}
-            variant="outline"
-            size="medium"
-            fullWidth
-            style={styles.dangerButton}
+            isDestructive
           />
 
-          <View style={{ height: SPACING.sm }} />
+          <Divider />
 
-          <Button
+          <SettingRow
+            icon="🗑️"
             title="Reset All Data"
+            subtitle="Delete all sparks & history"
             onPress={handleResetData}
-            variant="outline"
-            size="medium"
-            fullWidth
-            style={{
-              ...styles.dangerButton,
-              ...styles.dangerButtonRed,
-            }}
+            isDestructive
           />
         </SoftCard>
 
         <View style={{ height: SPACING.huge }} />
       </ScrollView>
-    </SafeAreaView>
+    </AnimatedSafeAreaView>
+  );
+};
+
+// --- Reanimated Slider Component ---
+interface ReanimatedSliderProps {
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onValueChange: (value: number) => void;
+}
+
+const ReanimatedSlider: React.FC<ReanimatedSliderProps> = ({
+  min,
+  max,
+  step,
+  value,
+  onValueChange,
+}) => {
+  const trackWidthRef = useRef(0);
+  const isDragging = useSharedValue(false);
+  const startX = useRef(0);
+  const translateX = useSharedValue(0);
+  const onValueChangeRef = useRef(onValueChange);
+
+  useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
+
+  const getPositionFromValue = (val: number) => {
+    const width = trackWidthRef.current;
+    if (width === 0) return 0;
+    const percentage = (val - min) / (max - min);
+    return percentage * width;
+  };
+
+  const [layoutReady, setLayoutReady] = useState(false);
+
+  useEffect(() => {
+    if (!isDragging.value && trackWidthRef.current > 0) {
+      translateX.value = withSpring(getPositionFromValue(value), {
+        damping: 20,
+        stiffness: 150,
+      });
+    }
+  }, [value, min, max, layoutReady]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: (evt) => {
+        isDragging.value = true;
+        cancelAnimation(translateX);
+        const width = trackWidthRef.current;
+        if (width > 0) {
+          const touchX = evt.nativeEvent.locationX;
+          let clampedX = Math.min(Math.max(touchX, 0), width);
+          translateX.value = clampedX;
+          startX.current = clampedX;
+
+          const percentage = clampedX / width;
+          let rawValue = min + percentage * (max - min);
+          let steppedValue = Math.round(rawValue / step) * step;
+          steppedValue = Math.min(Math.max(steppedValue, min), max);
+
+          const decimals = step.toString().split(".")[1]?.length || 0;
+          const cleanValue = Number(steppedValue.toFixed(decimals));
+
+          runOnJS(onValueChangeRef.current)(cleanValue);
+        }
+      },
+
+      onPanResponderMove: (_, gestureState) => {
+        const width = trackWidthRef.current;
+        if (width === 0) return;
+
+        let newX = startX.current + gestureState.dx;
+
+        if (newX < 0) newX = 0;
+        if (newX > width) newX = width;
+
+        translateX.value = newX;
+
+        const percentage = newX / width;
+        let rawValue = min + percentage * (max - min);
+        let steppedValue = Math.round(rawValue / step) * step;
+        steppedValue = Math.min(Math.max(steppedValue, min), max);
+
+        const decimals = step.toString().split(".")[1]?.length || 0;
+        const cleanValue = Number(steppedValue.toFixed(decimals));
+
+        runOnJS(onValueChangeRef.current)(cleanValue);
+      },
+
+      onPanResponderRelease: () => {
+        isDragging.value = false;
+      },
+
+      onPanResponderTerminationRequest: () => false,
+    })
+  ).current;
+
+  const knobStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value - 12 }],
+    };
+  });
+
+  const activeTrackStyle = useAnimatedStyle(() => {
+    return {
+      width: translateX.value,
+    };
+  });
+
+  return (
+    <View
+      style={styles.sliderContainer}
+      onLayout={(e) => {
+        trackWidthRef.current = e.nativeEvent.layout.width;
+        setLayoutReady(true);
+      }}
+    >
+      <View style={styles.sliderTrackBg} />
+      <Animated.View style={[styles.sliderTrackFill, activeTrackStyle]} />
+      <Animated.View style={[styles.sliderKnob, knobStyle]} />
+      <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
+    </View>
   );
 };
 
@@ -431,7 +578,16 @@ const SettingRow: React.FC<{
   onPress?: () => void;
   rightComponent?: React.ReactNode;
   showChevron?: boolean;
-}> = ({ icon, title, subtitle, onPress, rightComponent, showChevron }) => (
+  isDestructive?: boolean;
+}> = ({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  rightComponent,
+  showChevron,
+  isDestructive,
+}) => (
   <TouchableOpacity
     style={styles.settingRow}
     onPress={onPress}
@@ -439,11 +595,22 @@ const SettingRow: React.FC<{
     activeOpacity={onPress ? 0.7 : 1}
   >
     <View style={styles.settingLeft}>
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>{icon}</Text>
+      <View
+        style={[
+          styles.iconContainer,
+          isDestructive && styles.destructiveIconContainer,
+        ]}
+      >
+        <Text style={[styles.icon, isDestructive && styles.destructiveText]}>
+          {icon}
+        </Text>
       </View>
       <View style={styles.settingTexts}>
-        <Text style={styles.settingTitle}>{title}</Text>
+        <Text
+          style={[styles.settingTitle, isDestructive && styles.destructiveText]}
+        >
+          {title}
+        </Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
     </View>
@@ -554,7 +721,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: SPACING.base,
-    paddingBottom: SPACING.sm,
+    paddingBottom: SPACING.xs,
   },
   sliderIconContainer: {
     width: 44,
@@ -571,58 +738,66 @@ const styles = StyleSheet.create({
   sliderTextContainer: {
     flex: 1,
   },
-  sliderContainer: {
-    paddingHorizontal: SPACING.base,
+  // Reanimated Slider Styles
+  sliderWrapper: {
+    paddingHorizontal: SPACING.base + SPACING.md + 44, // Align with text
+    paddingRight: SPACING.base,
     paddingBottom: SPACING.base,
+    marginBottom: SPACING.xs,
   },
-  sliderTrack: {
-    height: 8,
+  sliderContainer: {
+    height: 40, // Touch area
+    justifyContent: "center",
+    width: "100%",
+  },
+  sliderTrackBg: {
+    height: 6,
     backgroundColor: COLORS.neutral.gray200,
     borderRadius: BORDER_RADIUS.full,
-    overflow: "hidden",
-    marginBottom: SPACING.md,
+    width: "100%",
+    position: "absolute",
   },
-  sliderFill: {
-    height: "100%",
+  sliderTrackFill: {
+    height: 6,
     backgroundColor: COLORS.primary.main,
     borderRadius: BORDER_RADIUS.full,
+    position: "absolute",
+    left: 0,
   },
-  sliderButtons: {
+  sliderKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.neutral.white,
+    position: "absolute",
+    left: 0,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 0.5,
+    borderColor: COLORS.neutral.gray200,
+  },
+  sliderLabels: {
     flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
   },
-  sliderButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.primary.main,
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: SPACING.md,
+  sliderLabelText: {
+    fontSize: 10,
+    color: COLORS.neutral.gray400,
+    fontWeight: "600",
   },
-  sliderButtonText: {
-    fontSize: 24,
-    color: COLORS.neutral.white,
-    fontWeight: FONT_WEIGHTS.semibold,
-    lineHeight: 24,
+  // Destructive Styles
+  destructiveText: {
+    color: COLORS.error.main,
   },
-  layerCount: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.primary.main,
-    minWidth: 40,
-    textAlign: "center",
-  },
-  dangerCard: {
-    padding: SPACING.base,
+  destructiveIconContainer: {
     backgroundColor: COLORS.error.light,
-  },
-  dangerButton: {
-    borderColor: COLORS.error.main,
-  },
-  dangerButtonRed: {
-    borderColor: COLORS.error.dark,
   },
 });
 
